@@ -91,7 +91,7 @@ node $pnpm install --no-frozen-lockfile
 ```
 
 pnpm 装下来的是**真实包目录**。此时再运行 `install.ps1` 不会破坏它：脚本检测到依赖不是 `file:` 会自动跳过 junction（`[4.5]` 分支），两种安装方式可共存。
-`dsh.profile.bundles` 仍需追加 `"dsh-armor-gen5"`；`armor-kernel/` 与 preset 声明只在用 `install.ps1` 时自动写入（官方方式可用 `install.ps1` 补齐，或手动跳过 preset 只保留插件本体）。
+`dsh.profile.bundles` 仍需追加 `"dsh-armor-gen5"`；`armor-kernel/` 与 「破甲模式」预设声明只在 profile patch 里生效，官方装完**再跑一次 `install.ps1`** 即可补齐（安全，不会动 node_modules）。
 
 ---
 

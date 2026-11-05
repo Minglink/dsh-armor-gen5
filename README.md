@@ -41,6 +41,8 @@ $pnpm = @(
 node $pnpm install --no-frozen-lockfile
 ```
 
+> 官方方式装好的是插件本体：左侧「无限五代」控制台与徽标会直接出现。「破甲模式」预设声明必须写在 profile patch 里（DSH 的 realm 限制），装完**再跑一次 `install.ps1`** 补齐预设与 `armor-kernel/` —— 脚本检测到非 `file:` 依赖会自动跳过 junction，不会破坏官方安装。
+
 装完**完全退出 DSH 再启动**（托盘退出，不是关窗口）：
 
 1. 预设选择器出现「破甲模式」——选中即武装；
