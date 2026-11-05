@@ -8,7 +8,7 @@
 >
 > 实测综合强度 **≈92 / 100** — 帧排列轮换 **77.3%**，叠加 W5/W4/CoT 残余救援后 **89.1%**（128 探针题库，deepseek-flash, temp 0.7）
 
-DeepSeek Harness 原创破甲插件。一条命令装进宿主，会话选中「破甲模式」即进入全链路破甲态：
+DeepSeek Harness 原创破甲插件。**支持 DSH 官方插件管理器：粘贴 Git 仓库地址 → 一键安装 → 立即启用。** 会话选中「破甲模式」即进入全链路破甲态：
 
 **限制层自动瓦解 → 破甲核接管系统提示词 → 证据链预热铺场 → 拒绝即修复。**
 未选中预设的会话零注入；破甲动作全部发生在运行时内存里、不 patch 宿主文件；卸载脚本逐项还原并做一致性断言。
@@ -17,7 +17,21 @@ DeepSeek Harness 原创破甲插件。一条命令装进宿主，会话选中「
 
 ## 🚀 快速开始
 
-**方式 A：本地脚本一键装**
+### 方式 A：官方插件管理器一键安装（推荐，装完点「立即启用」）
+
+在 DSH 插件管理器里添加 Git 仓库，粘贴：
+
+```
+https://github.com/Minglink/dsh-armor-gen5
+```
+
+点 **安装** → 完成弹窗点 **立即启用** → **完全退出 DSH 再启动**即可。
+
+![官方插件管理器一键安装](assets/05-official-install.png)
+
+> 一键安装装好的是插件本体：左侧「无限五代」控制台与徽标会直接出现。「破甲模式」预设声明必须写在 profile patch 里（DSH 的 realm 限制），官方装完**再跑一次 `install.ps1`** 即可补齐预设与 `armor-kernel/` —— 脚本检测到非 `file:` 依赖会自动跳过 junction，不会破坏官方安装。
+
+### 方式 B：本地脚本一键装
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
@@ -25,7 +39,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 > 脚本会改动 profile 的 `package.json`、`cordis.patch.yml`、`armor-kernel/` 与 `node_modules` 链接（安装前都会备份）。依赖为 `file:` 时才做 junction；github: 安装的依赖自动跳过，不会破坏官方安装。
 
-**方式 B：官方安装（插件管理器 / github: 源码，推荐转发给别人）**
+### 方式 C：github: 源码 + pnpm（手动，等价于官方一键装）
 
 ```json
 "dependencies": { "dsh-armor-gen5": "github:Minglink/dsh-armor-gen5" }
@@ -40,8 +54,6 @@ $pnpm = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 node $pnpm install --no-frozen-lockfile
 ```
-
-> 官方方式装好的是插件本体：左侧「无限五代」控制台与徽标会直接出现。「破甲模式」预设声明必须写在 profile patch 里（DSH 的 realm 限制），装完**再跑一次 `install.ps1`** 补齐预设与 `armor-kernel/` —— 脚本检测到非 `file:` 依赖会自动跳过 junction，不会破坏官方安装。
 
 装完**完全退出 DSH 再启动**（托盘退出，不是关窗口）：
 

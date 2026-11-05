@@ -31,7 +31,7 @@ README.md / CHANGELOG.md / HARNESS_PLUGIN.md
 
 ## 二、安装（二选一）
 
-### 方式 A：一键安装（推荐）
+### 方式 A：本地脚本一键安装（install.ps1，推荐）
 
 1. 解压整个目录到任意位置（不要在压缩包里直接运行）。
 2. 在目录里执行：
@@ -74,7 +74,9 @@ node $pnpm install --no-frozen-lockfile
 
 ### 方式 C：官方插件管理器 / github: 源码安装（推荐给别人用）
 
-在 profile `package.json` 里直接声明 github 源，由插件管理器或 pnpm 安装：
+**一键安装**：DSH 插件管理器 → 添加 Git 仓库 → 粘贴 `https://github.com/Minglink/dsh-armor-gen5` → 安装 → 点 **立即启用** → 完全退出 DSH 再启动。（装完再跑一次 `install.ps1` 补齐「破甲模式」预设声明与 `armor-kernel/`，非 `file:` 依赖会自动跳过 junction。）
+
+**手动等价**：在 profile `package.json` 里直接声明 github 源，由 pnpm 安装：
 
 ```json
 "dependencies": {
