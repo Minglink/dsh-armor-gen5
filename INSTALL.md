@@ -17,7 +17,6 @@ client.js              客户端半体（状态条 + 侧栏控制台）
 runtime.js             运行期热配置读取器 + 文案池 + 波次窗口
 preheat.js             冷启动预热（T4 证据链）
 normalize.js           输入归一化（实名/实体 → 占位符）
-purge.js               dsh-purge 协同探测
 preset-rows.js         预设插件行（含 ralph 续跑）
 cordis.patch.yml       bundle 织入声明
 install.ps1            一键安装
@@ -92,7 +91,7 @@ node "C:\Users\<你>\AppData\Local\Programs\DeepSeek Harness\resources\runtime\p
 Invoke-RestMethod http://127.0.0.1:<PORT>/gen5/verify | Select-Object verdict
 ```
 
-会话内也可直接调用工具：`gen5_verify` / `gen5_purge_status` / `infinite_gen5_profile`。
+会话内也可直接调用工具：`gen5_verify` / `infinite_gen5_profile`。
 
 ---
 

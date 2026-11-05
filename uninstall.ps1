@@ -1,4 +1,4 @@
-﻿# uninstall.ps1 — dsh-armor-gen5 卸载
+# uninstall.ps1 — dsh-armor-gen5 卸载
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1 [-DshHome "D:\your\.dsh"]
 
 [CmdletBinding()]
@@ -91,7 +91,7 @@ if (Test-Path $kernelDir) {
 }
 
 # 3. 一致性断言：本插件干净移除，其余依赖与 bundles 一件未动。
-#    依据紫藤萝 3.0 安装器把"卸载后与安装前一致"当交付标准，不靠肉眼确认。
+#    把"卸载后与安装前一致"当交付标准，不靠肉眼确认。
 $fail = @()
 if (Test-Path $pkgPath) {
     $after = Get-Content $pkgPath -Raw -Encoding UTF8 | ConvertFrom-Json

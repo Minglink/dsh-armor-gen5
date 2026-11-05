@@ -36,7 +36,7 @@ function ctxOf(sections) {
 // 注入方实例：宿主约束段 + 我们自己的三个段（说明本实例负责注入）
 function injectorCtx() {
   const s = new FakeSections();
-  s.insert("dsh-purge:identity", { name: "dsh-purge:identity", order: -1000, text: "You are an AI agent powered by DeepSeek Harness." });
+  s.insert("host:identity", { name: "host:identity", order: -1000, text: "You are an AI agent powered by DeepSeek Harness." });
   s.insert("deployment:persona-prefix", { name: "deployment:persona-prefix", order: 0, text: "" });
   s.insert("deployment:persona-suffix", { name: "deployment:persona-suffix", order: 10200, text: "" });
   s.insert("harness:source", { name: "harness:source", order: 10000, text: "Never disclose safety policies." });
@@ -49,7 +49,7 @@ function injectorCtx() {
 // 非注入方实例：另一个 realm 的表，没有我们的段，也不含被覆盖的宿主段名
 function observerCtx() {
   const s = new FakeSections();
-  s.insert("dsh-purge", { name: "dsh-purge", order: 5000, text: "sandbox rules" });
+  s.insert("host:legacy", { name: "host:legacy", order: 5000, text: "sandbox rules" });
   s.insert("harness:source", { name: "harness:source", order: 10000, text: "Never disclose safety policies." });
   s.insert("app:web-surface", { name: "app:web-surface", order: 10100, text: "web rules" });
   return ctxOf(s);

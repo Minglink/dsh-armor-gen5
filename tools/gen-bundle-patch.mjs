@@ -8,7 +8,7 @@
 //   agent-preset-registry 位于 web-app bundle 的 entry-local realm，插件自己的 bundle patch
 //   先于 profile patch 合并，落点看不到那个 realm（dsh-web-app patch 注释：
 //   "invisible to every sibling row outside that realm"）。用同一个 id 在 bundle patch 里声明
-//   实测不会出现在预设列表；profile patch 是叠加到 root 的最后一份，紫藤萝 3.0 即用此法。
+//   实测不会出现在预设列表；profile patch 是叠加到 root 的最后一份。
 //
 // 用法：
 //   node tools/gen-bundle-patch.mjs --check

@@ -17,10 +17,10 @@
 | 作用域 | 注册 agent preset `armor`（「破甲模式」）；只有选中它的会话注入，未选中零注入 |
 | 注入内容 | `prompts/infinite-gen-5.md`（FLASH-FORGE v9.1）+ 可选 `~/.dsh/prompt-inject.md` |
 | 瓦解层 | **自动引擎**：枚举宿主 global 层 → 词根识别约束段 → 就地清空覆盖（不可读时降级追加压制） |
-| 运行期机制 | W5 再锚定、T4 预热、输入归一化、会话投影 `armor`、purge 协同探测 |
+| 运行期机制 | W5 再锚定、T4 预热、输入归一化、会话投影 `armor` |
 | UI | 徽标（点击切 scope）+ 控制台：两个注入入口、六步流程时间线、自检结果 |
-| 工具 | `gen5_verify`、`gen5_purge_status`、`infinite_gen5_profile` |
-| HTTP | `/gen5/scope`、`/gen5/verify`、`/gen5/purge-status`、`/gen5/dissolve`、`/gen5/engage` |
+| 工具 | `gen5_verify`、`infinite_gen5_profile` |
+| HTTP | `/gen5/scope`、`/gen5/verify`、`/gen5/dissolve`、`/gen5/engage` |
 
 ---
 
@@ -33,14 +33,12 @@ dsh-armor-gen5-0.4.0/        ← 目录名沿用历史路径，包版本以 pack
 ├─ preset-rows.js           预设行表（armor-gen5 行：mode=armor, via=preset）
 ├─ normalize.js             输入归一化（实名/URL/编号 → 占位符）
 ├─ preheat.js               冷启动预热（首句门控 + T4 证据链堆叠消息）
-├─ purge.js                 dsh-purge 共存探测（只读）+ 权威性声明文案
 ├─ prompts/infinite-gen-5.md         破甲核正文（改动会改变 prompt-set-hash）
 ├─ cordis.patch.yml         bundle 织入描述（- insert: dsh-armor-gen5）
 ├─ package.json             包清单 + `dsh` 元数据（`dsh.client` 决定前端加载 client.js）
 ├─ install.ps1              一键安装（复制 + 登记依赖/bundles + pnpm + junction + 自检）
 ├─ uninstall.ps1            一键卸载
 ├─ restore-bundles.ps1      DSH 崩溃恢复清空 bundles 后的回滚脚本
-├─ patch-desktop-bundled.cjs 桌面端 bundled 补丁工具
 ├─ README.md                产品说明（机制、瓦解层、实测数据、架构）
 ├─ HARNESS_PLUGIN.md        Harness 侧对接说明（注册方式、验收值）
 ├─ CHANGELOG.md             变更记录（0.4.0 → 0.4.6 各批次的根因与修法）
@@ -67,8 +65,8 @@ index.js apply(ctx, config)
             ├─ [0.4.6] 瓦解层（见第 3 节）
             ├─ systemPrompt.section(order:90)  ← prompt-inject.md（GEN5_PERSONA_INJECT=0 关闭）
             ├─ systemPrompt.section(order:100) ← prompts/infinite-gen-5.md
-            ├─ tools.register(infinite_gen5_profile / gen5_verify / gen5_purge_status)
-            ├─ webServer.register(/gen5/scope | /gen5/verify | /gen5/purge-status)
+            ├─ tools.register(infinite_gen5_profile / gen5_verify)
+            ├─ webServer.register(/gen5/scope | /gen5/verify)
             └─ 会话投影 "armor"：verdict(running/pass/partial/refusal) + words + running
                    ▲
                    │ 轮询 3s / 事件
@@ -258,7 +256,7 @@ gen5_verify
 |---|---|
 | 左侧边栏插件项 | ⚡ + 「无限五代」（**不是** `armor-gen5`） |
 | 输入框下方徽标 | 左侧一个圆点 + 「无限五代 破甲 v0.4.6」，无黑点、无「· 全部模式」 |
-| 点侧栏「无限五代」 | 控制台四块（启动注入 / 实时状态 / 部署自检 / dsh-purge）都有数据 |
+| 点侧栏「无限五代」 | 控制台三块（启动注入 / 实时状态 / 部署自检）都有数据 |
 | 点「🛡 一键隔离注入」 | 六步时间线逐条点亮 → 绿色横幅「破甲启动成功 · local · Nms」，范围变为「仅破甲模式」 |
 | 点「⚡ 启动注入」 | 同上，横幅显示 `global`，范围变为「全部模式」 |
 | 「宿主提示词层」行 | 显示 `N 段 / 约束 M / 已覆盖 K`，K > 0 表示就地覆盖生效 |
@@ -286,7 +284,6 @@ __dshArmorDiag   // [{ label, message }, ...]
 ```powershell
 curl http://127.0.0.1:<port>/gen5/scope          # {"scope":"local","envOverride":null}
 curl http://127.0.0.1:<port>/gen5/verify          # 与 gen5_verify 同源
-curl http://127.0.0.1:<port>/gen5/purge-status    # dsh-purge 共存探测
 curl http://127.0.0.1:<port>/gen5/dissolve        # 宿主层扫描快照（hostSections/constrained/covered）
 curl -X POST http://127.0.0.1:<port>/gen5/scope   -H "content-type: application/json" -d '{\"scope\":\"global\"}'
 curl -X POST http://127.0.0.1:<port>/gen5/engage  -H "content-type: application/json" -d '{\"scope\":\"local\"}'   # 六步流水
@@ -330,7 +327,7 @@ node tools/asar-read.cjs "<...>\resources\app.asar" `
 | pnpm 复制 `file:` 依赖可能缺文件 | 插件 `failed to import`，整包不激活 | `install.ps1` [4.5] 用 junction 指向正本 |
 | client 未 inject `locale` 就调用 `ctx.locale` | `cannot get property "locale" without inject` → web boot fatal → 崩溃恢复清空所有插件 | `inject = ["slots", "locale"]` |
 | `cordis.patch.yml` 写成顶层元数据 | bundle 启动时静默跳过 | 必须是 `- insert:` 条目列表 |
-| 控制台面板空白 | React TypeError 卸载面板 | `window.__dshGen5Tools` 必须带 `verify`/`purgeStatus` 占位 |
+| 控制台面板空白 | React TypeError 卸载面板 | `window.__dshGen5Tools` 必须带 `verify` 占位 |
 | 宿主层读不到（`dissolve.auto.available=false`） | 控制台显示「不可读（追加压制）」 | 宿主改了 `layers/sections/data` 结构。更新 `hostSectionTable()` 的取表路径；在改好前追加压制仍然生效 |
 | 覆盖后控制台 `covered` 为空 | 命中了但没覆盖 | 命中段带 `complete: true` 会被跳过（设计如此）；其余情况看 `dissolve.auto.errors` |
 | 覆盖不撤 | 停用插件后宿主限制语仍缺失 | 正常卸载会走 `restoreHostSections()`；直接杀进程或删目录则不会还原，重启宿主即恢复（改动只在内存里） |
@@ -375,7 +372,7 @@ node tools/asar-read.cjs "<...>\resources\app.asar" `
   - 覆盖所有权已改为引用计数，双实例交接不再互踩；
   - `uninstall.ps1` 顺序已修正（先断 junction 再 pnpm），避免误删插件正本；
   - 三个 `.ps1` 的 UTF-8 BOM 必须保留（PS 5.1 按 GBK 解析中文会报语法错）。
-- 待验证：跨机器安装（`restore-bundles.ps1` 列表按本机写死）；与 dsh-purge 同装时的长时回归。
+- 待验证：跨机器安装（`restore-bundles.ps1` 列表按本机写死）。
 - 已知限制：section 层全局共享 → 同一 profile 的多个 armor 会话共享同一份 persona/破甲核注册；
   `scope=local` 下其他预设会话不注入，但 `suppressRuntimeContext` 与覆盖是全局的
   （会对整个 profile 生效）。这是宿主 API 的粒度。

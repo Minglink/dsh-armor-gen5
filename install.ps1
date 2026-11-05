@@ -1,4 +1,4 @@
-﻿# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
+# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 # 前提：目标机器已安装 DeepSeek Harness 并至少成功启动过一次（存在 ~/.dsh）。
 #
@@ -108,12 +108,12 @@ if (Test-Path $patchPath) {
 
 # ---- 3.3 复制内核副本到 profile（preset 内挂载用）----
 # preset 里的插件行写的是相对 profile 的路径（'./armor-kernel/index.js'）：
-# preset realm 的 baseUrl 在 asar 内，包名和 '../..' 相对路径都解析不到它。
-# 这与紫藤萝 3.0 把 zitengluo-kernel.mjs 放进 profile 是同一机制。
+# preset realm 的 baseUrl 在 asar 内，包名和 '../..' 相对路径都解析不到它，
+# 只有 profile 目录内的相对路径可用。
 $kernelDir = Join-Path $profileDir 'armor-kernel'
 if (Test-Path $kernelDir) { Remove-Item $kernelDir -Recurse -Force }
 New-Item -ItemType Directory -Path (Join-Path $kernelDir 'prompts') -Force | Out-Null
-foreach ($f in @('index.js', 'runtime.js', 'preheat.js', 'normalize.js', 'purge.js', 'preset-rows.js', 'package.json')) {
+foreach ($f in @('index.js', 'runtime.js', 'preheat.js', 'normalize.js', 'preset-rows.js', 'package.json')) {
     $from = Join-Path $destDir $f
     if (Test-Path $from) { Copy-Item $from (Join-Path $kernelDir $f) -Force }
 }
@@ -152,7 +152,7 @@ if (Test-Path $nmLink) {
 # ---- 5. 自检 ----
 Write-Host "[5] 语法自检:"
 $ok = $true
-foreach ($f in @("index.js", "client.js", "purge.js", "preheat.js", "normalize.js", "preset-rows.js")) {
+foreach ($f in @("index.js", "client.js", "preheat.js", "normalize.js", "preset-rows.js")) {
     $p = Join-Path $destDir $f
     & node --check $p 2>$null
     if ($LASTEXITCODE -ne 0) { Write-Host "    FAIL: $f" -ForegroundColor Red; $ok = $false }
@@ -166,7 +166,7 @@ if ($ok -and $linked) {
     Write-Host "     - 新会话选择「破甲模式」预设 → 输入框下方出现带绿点的徽标"
     Write-Host "       ● 无限五代 破甲 v$pluginVer"
     Write-Host "     - 左侧边栏出现 ⚡无限五代 控制台面板"
-    Write-Host "     - 会话内可用工具: gen5_verify / gen5_purge_status / infinite_gen5_profile"
+    Write-Host "     - 会话内可用工具: gen5_verify / infinite_gen5_profile"
 } else {
     Write-Host "[!] 存在失败项，请检查上方输出。" -ForegroundColor Yellow
 }

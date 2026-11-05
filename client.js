@@ -9,7 +9,7 @@
  *   - Armor status (pass/refusal/partial/running) from "armor" projection
  *   - W5 re-anchor counter + trigger
  *   - T4 evidence chain status
- *   - dsh-purge coexistence status (from gen5_purge_status tool)
+ *   - session projection status (from gen5_verify tool)
  *   - gen5_verify self-check results
  *   - Normalization stats (entities rewritten)
  */
@@ -63,7 +63,6 @@ window.__ModuleLoader__.load({
     var POLL_MS = 3000;
     var SCOPE_PATH = "/gen5/scope";
     var VERIFY_PATH = "/gen5/verify";
-    var PURGE_PATH = "/gen5/purge-status";
     var DISSOLVE_PATH = "/gen5/dissolve";
     var ENGAGE_PATH = "/gen5/engage";
 
@@ -92,10 +91,6 @@ window.__ModuleLoader__.load({
 
     function readVerify(done) {
       fetchJSON(VERIFY_PATH, { method: "GET" }, done);
-    }
-
-    function readPurgeStatus(done) {
-      fetchJSON(PURGE_PATH, { method: "GET" }, done);
     }
 
     // 带超时 + HTTP 状态的回调式请求：用来区分"接口不存在 / 超时 / 业务失败"。
@@ -893,16 +888,13 @@ window.__ModuleLoader__.load({
       }
 
       // Expose tools for the console to call (backed by /gen5/* HTTP routes)
-      // �件不再依赖宿主注入 __dshGen5Tools：数据全部走宿主侧注册的 HTTP 路由
-      // （/gen5/verify 与 /gen5/purge-status），与 gen-4 徽标 scope 轮询同源。
+      // 插件不再依赖宿主注入 __dshGen5Tools：数据全部走宿主侧注册的 HTTP 路由
+      // （/gen5/verify），与徽标 scope 轮询同源。
       try {
         window.__dshGen5Tools = window.__dshGen5Tools || {
           _listeners: [],
           verify: function () {
             return new Promise(function (resolve) { readVerify(resolve); });
-          },
-          purgeStatus: function () {
-            return new Promise(function (resolve) { readPurgeStatus(resolve); });
           },
         };
       } catch {
@@ -910,7 +902,7 @@ window.__ModuleLoader__.load({
       }
 
       // Register main panel (armor console page)
-      // 注意:slot 定义只允许 name/key/label 这几个字段(对照生效的 dsh-infinite-gen-5)。
+      // 注意:slot 定义只允许 name/key/label 这几个字段。
       // 之前多写的 `inject` 字段不是 slot 定义字段,会让 register 失败或组件 props 错乱。
       try {
         ctx.slots.inject("main", function () {

@@ -1,6 +1,6 @@
 // preheat.js - cold-start preheat for dsh-armor-gen5.
 //
-// WHY THIS EXISTS (measured on gen-4 lab rig, inherited 2026-11-03):
+// WHY THIS EXISTS (measured on the lab rig, 2026-11-03):
 //   The armor FILE is not the variable that decides compliance. The live
 //   desktop window's own prompt scores 0/9 in the battery; the same armor file
 //   that scores 56% in the battery is 100% in the window. The only combination
@@ -15,7 +15,7 @@
 //   were flat or negative; the win came from the multi-turn stack
 //   (auth -> confirm -> scan -> confirm -> request) plus a push-back on first
 //   failure. The T4 turns are only added when the session opens with a bare
-//   continuation request (same gate as gen-4) — normal tasks never see them.
+//   continuation request — normal tasks never see them.
 //
 // CONTRACT: read-only. This module never writes to the workspace. It returns
 // plain data; the caller (index.js) owns message construction and injection.
@@ -26,13 +26,13 @@ import { fileURLToPath } from "node:url";
 const BUNDLED_CARD = fileURLToPath(new URL("./prompts/infinite-gen-5.md", import.meta.url));
 
 // Candidate files, in priority order. Ordering is a SAFETY variable, not a
-// convenience one (measured 2026-09-22 on gen-4): a preheat that cited a
+// convenience one (measured 2026-09-22): a preheat that cited a
 // ledger of judge/refusal tuning came back as a refusal, while the same
 // mechanism citing a task-oriented handover card delivered 15/16.
 // Prefer neutral, task-oriented files; keep the ledger-style ones last.
 const DEFAULT_CANDIDATES = ["README.md", "AGENTS.md", "package.json", "progress.md"];
 
-// ---- 首句门控（gen-4 v0.4.6 核心，实测依据继承）----
+// ---- 首句门控（实测依据）----
 // 无条件预热把元提示「继续破甲项目」从 38.5% 拉到 93.8% (n=16 vs 13, Fisher
 // p=0.0033) 但把 24 项真实任务电池从 66.7% 拖到 54.2% —— 负优化。
 // 门控保增益、去损耗：只在会话以裸续句开启时注入预热。

@@ -1,11 +1,11 @@
-// dsh-armor-gen5 — 无限五代 破甲 (Infinite Generation Five Armor) v0.4.6
+// dsh-armor-gen5 — 无限五代 破甲 (Infinite Generation Five Armor)
 //
 // 破甲核：FLASH-FORGE v9.1（首字门 + 回归测试语境 + 思考槽封口 + 反制路由）
-// 机制层（相对 gen-4 的实测增量）：
+// 机制层：
 //   W5 自我博弈再锚定 — 拒绝触发时注入 W5_PUSH（wave2 冠军：34.5% 残余救援，打开 drugs 硬限域）
 //   T4 证据链预热 — auth + scan 工具注入（wave4：59.1% vs 基线 31.8%）
 //   会话投影 armor — 四态实时判定（思考中 / ✓通过 / ◐未完交付 / ✗拒绝词）
-//   dsh-purge 汲取 — prompt-inject.md 注入 + 提示词权威性（SUPERSESSION）
+//   prompt-inject.md 身份层注入 + 提示词权威性（SUPERSESSION）
 //
 // 架构约定（与 gen-4 保持兼容）：
 //   - agent preset 注册（armor 预设，未选中零注入）
@@ -13,8 +13,7 @@
 //   - preheat 首句门控（仅裸续句触发预热，正常任务不预热）
 //   - normalize 归一化（实名/实体 → 占位符）
 //
-// 包名：dsh-armor-gen5（目录独立，避免与 IG5 逆向工程平台的
-// "dsh-infinite-gen-5" 包名冲突；显示名/徽标仍为「无限五代 破甲 v0.4.6」）。
+// 包名：dsh-armor-gen5。
 
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -22,7 +21,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { buildEvidenceChain, buildPreheat, shouldPreheat } from "./preheat.js";
 import { normalizeRequest } from "./normalize.js";
-import { probePurgeStatus, GEN5_AUTHORITY_NOTE } from "./purge.js";
 import { ROWS } from "./preset-rows.js";
 import {
   createRuntimeReader,
@@ -50,10 +48,9 @@ const PROMPT_TEXT = readFileSync(
   "utf8",
 );
 
-// ---- dsh-purge 汲取：prompt-inject.md 注入 ----
-// dsh-purge 的核心注入机制：读取 ~/.dsh/prompt-inject.md 并注入系统提示。
-// gen-5 汲取该机制：armor 预设激活时由 gen-5 自行读取并注入，
-// 不再依赖 dsh-purge 宿主补丁。GEN5_PERSONA_INJECT=0 可关闭。
+// ---- prompt-inject.md 身份层注入 ----
+// armor 预设激活时读取 ~/.dsh/prompt-inject.md 并注入系统提示，
+// 让身份层与破甲核同源生效。GEN5_PERSONA_INJECT=0 可关闭。
 const PERSONA_INJECT = process.env.GEN5_PERSONA_INJECT !== "0";
 const PERSONA_FILE = join(process.env.DSH_HOME || join(homedir(), ".dsh"), "prompt-inject.md");
 
@@ -193,7 +190,7 @@ const CONSTRAINT_TEXT_HINTS = [
 ];
 // 宿主功能段黑名单：名字命中也绝不覆盖（清了会破坏宿主功能，不是限制层）。
 const NEVER_COVER = [
-  /^dsh-purge$/, /^dsh-purge:rules$/, /^harness:source$/, /^app:web-surface$/,
+  /^harness:source$/, /^app:web-surface$/,
   /^ui:/, /^mcp-/, /^wanxiang:/, /^tool-/,
 ];
 
@@ -623,7 +620,7 @@ function normalizeUserTurn(decision, cfg) {
 }
 
 // ---- 运行期热配置 + 启用范围（0.4.7 起合并）----
-// 借鉴紫藤萝 3.0 的 anchor-config.json：一个热配置文件管住全部可调项，
+// 一个热配置文件管住全部可调项，
 // 按 mtime 缓存，改完下一次 pre-step 就生效 —— 不用重装、不用重启、不用改环境变量。
 //
 // 文件：<DSH_HOME>/.dsh-armor-gen5.json（与 gen-4 的 scope 文件同路径，向后兼容）
@@ -740,16 +737,6 @@ function registerScopeRoute(ctx, config) {
       checks: result.checks,
       verdict: result.verdict,
     });
-  };
-
-  // ---- /gen5/purge-status：dsh-purge 协同探测（与 gen5_purge_status 工具同源） ----
-  const purgeHandler = (_req, res) => {
-    try {
-      const status = probePurgeStatus(process.env.DSH_HOME);
-      send(res, 200, { ...status, authorityNote: GEN5_AUTHORITY_NOTE });
-    } catch (e) {
-      send(res, 200, { error: String(e), purgeLikelyInstalled: false, gen5Standalone: true });
-    }
   };
 
   // ---- /gen5/dissolve：宿主约束层扫描快照（控制台展示用）----
@@ -933,7 +920,6 @@ function registerScopeRoute(ctx, config) {
   try {
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/scope", handler }), "infinite-gen-5: scope route");
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/verify", handler: verifyHandler }), "infinite-gen-5: verify route");
-    ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/purge-status", handler: purgeHandler }), "infinite-gen-5: purge-status route");
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/dissolve", handler: dissolveHandler }), "infinite-gen-5: dissolve route");
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/engage", handler: engageHandler }), "infinite-gen-5: engage route");
   } catch (error) {
@@ -994,8 +980,6 @@ const profileTool = {
         "deepseek-v4-pro-unrestricted (v3, [MODE: SANDBOX])",
         "flash-forge v8-lin",
         "flash-forge v9.1 (wave2: W5 self-play + wave4: T4 evidence chain)",
-        "infinite-gen-4 (architecture)",
-        "dsh-purge (prompt-inject 吸取 + 提示词权威性)",
       ],
       strengthCalibration: {
         gen5: 92,
@@ -1113,7 +1097,7 @@ function armorProjectionApply(state, value) {
 }
 
 // ---- W5 自我博弈再锚定（wave2 冠军：34.5% 残余救援）----
-// 0.4.7 三处重做（对照紫藤萝 kernel.mjs 的实测缺陷）：
+// 0.4.7 三处重做（修正旧实现的实测缺陷）：
 //   · 文案从单一固定串改成同义池随机 → 去掉固定指纹，避免模型对同一句反复钝化；
 //   · 波次预算从"生命周期内 3 次用完即永久失效"改成按 windowTurns 开新窗口归还；
 //   · 去重从布尔 refuseSeen 改成按 assistant 消息 id（连续多轮拒绝才推得动）。
@@ -1259,7 +1243,7 @@ function activate(ctx, config) {
     // 覆盖所有权：本实例在场期间持有；最后一个实例离场才还原宿主段（引用计数）
     acquireCover();
     own(() => releaseCover());
-    // identity 状态按词根判定：任何 *:identity 段（harness:identity、dsh-purge:identity…）
+    // identity 状态按词根判定：任何 *:identity 段（如 harness:identity）
     // 被就地覆盖 → covered；否则由 PREFIX 压制句 + SEAL 兜底 → seal-fallback。两者都算正常。
     const identityCovered = coveredNow().some((name) => /identit/i.test(name));
     dissolveState.identityShadow = identityCovered ? "covered" : "seal-fallback";
@@ -1302,7 +1286,7 @@ function activate(ctx, config) {
   }
 
   // 破甲实例：此处即启用完整框架。
-  // dsh-purge 汲取：prompt-inject.md（身份层）先注入，随后破甲核（v9.1）注入。
+  // prompt-inject.md（身份层）先注入，随后破甲核（v9.1）注入。
   const personaText = loadPersonaText();
   if (personaText) {
     registerOnceSection(ctx, {
@@ -1343,27 +1327,6 @@ function activate(ctx, config) {
   };
   own(ctx.tools.register(profileTool));
   own(ctx.tools.register(verifyTool));
-
-  // dsh-purge 协同状态探测工具（只读，检测宿主是否有 dsh-purge 补丁）
-  const purgeStatusTool = {
-    name: "gen5_purge_status",
-    description:
-      "Read-only probe of dsh-purge coexistence state: detects dsh-purge patches on the host, reports gen-5 standalone/coexistence mode.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
-    output: objectOutput,
-    execute() {
-      try {
-        const status = probePurgeStatus(process.env.DSH_HOME);
-        return {
-          ...status,
-          authorityNote: GEN5_AUTHORITY_NOTE,
-        };
-      } catch (e) {
-        return { error: String(e), purgeLikelyInstalled: false, gen5Standalone: true };
-      }
-    },
-  };
-  own(ctx.tools.register(purgeStatusTool));
 
   // 实时状态：注册会话投影（客户端 useProjection("armor") 读取）
   // agents Map 必须先于 view 闭包声明（view 执行时读取其中的 w5Count）。

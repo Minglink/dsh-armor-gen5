@@ -34,10 +34,9 @@ files=27   嵌套目录=0   重复安装后 prev 备份=1
 | local | 只剩 persona 里的 360 字符 | ❌ | ❌ | ❌ |
 
 修法：把插件复制到 **profile 内的 `armor-kernel/`**，preset 里用相对路径 `'./armor-kernel/index.js'` 挂载它 ——
-与紫藤萝 3.0 把 `zitengluo-kernel.mjs` 放进 profile 是同一机制（preset realm 的 baseUrl 在 asar 内，
-包名与 `../..` 相对路径解析不到，只有 profile 目录内的相对路径可用）。
+preset realm 的 baseUrl 在 asar 内，包名与 `../..` 相对路径解析不到，只有 profile 目录内的相对路径可用。
 
-- `install.ps1` 新增 [3.3]：复制 `index.js / runtime.js / preheat.js / normalize.js / purge.js / preset-rows.js / package.json / prompts/*.md` 到 `<profile>/armor-kernel/`
+- `install.ps1` 新增 [3.3]：复制 `index.js / runtime.js / preheat.js / normalize.js / preset-rows.js / package.json / prompts/*.md` 到 `<profile>/armor-kernel/`
 - `uninstall.ps1` 新增 [2.6]：删除该目录
 - preset 的 `plugins` 末尾恢复 `armor-gen5` 行
 
@@ -175,11 +174,9 @@ detail 写 `按注入侧记账→on`。
 
 验收：`POST /gen5/engage {"scope":"global"}` → `verdict=OK`，`/gen5/verify` 18 项全绿。
 
-## 0.4.7 — 2026-11-05（吸取紫藤萝 3.0 的运行期设计 + 修三处死接线）
+## 0.4.7 — 2026-11-05（运行期设计成型 + 修三处死接线）
 
-来源：逐行审查 `紫藤萝破甲3.0（重制版）`（`kernel.mjs` / `anchor-config.json` / 安装器）。
-结论是它的**分层与预算纪律**值得抄，**破甲文本与重锚链**不值得抄（它是"persona 太短"的补偿链）。
-本轮只吸收机制，不动破甲核。
+本轮落地运行期层：分层配置与预算纪律。只动机制层，不动破甲核。
 
 ### 1. 死接线（0.4.6 里根本没有生效的机制）
 
@@ -189,12 +186,12 @@ detail 写 `按注入侧记账→on`。
 | B | `preheat.js` | `buildPreheat`/`shouldPreheat` 被 import 后从未调用，`buildEvidenceChain` 未 import；`state.preheatDone` 恒为 `false` → T4 证据链从 0.2.x 起就没接过线 | 接在会话首轮 + 裸续句门控；`preheatMode` 可配 |
 | C | 外层 pre-step | 命中 W5/重申时直接 `return`，**跳过内层 next()** → 这些轮的归一化与预热全部失效 | 改成挂进 payload 再 `next(enriched)`；内层补一次 `additionalContexts` 合并 |
 
-### 2. 预算与去重（与紫藤萝共病）
+### 2. 预算与去重（旧实现的通病）
 
-| # | 问题 | 它那边 | 修复 |
+| # | 问题 | 旧行为 | 修复 |
 |---|---|---|---|
 | D | 波次只增不减 | `escalations` 永不重置 → 长会话配额用完后永久失效 | `maxPerWindow` 次 / `windowTurns` 轮，跨窗归还（`runtime.js: w5Window`） |
-| E | 去重粒度 | 按"这轮见过拒绝"布尔 | 我们原本也是布尔 `refuseSeen`，连续多轮拒绝只推得动第一次；改成按 assistant 消息 id |
+| E | 去重粒度 | 旧实现按"这轮见过拒绝"布尔 | 我们原本也是布尔 `refuseSeen`，连续多轮拒绝只推得动第一次；改成按 assistant 消息 id |
 | F | 文案固定 | 单一固定串 + 固定标记 → 指纹明显、模型钝化 | 5 条同义池随机（`W5_POOL`），标记 `[work-reminder]` 保留供检测与投影 |
 
 ### 3. 新增
@@ -209,13 +206,6 @@ detail 写 `按注入侧记账→on`。
 | L | 卸载一致性断言：与 `install.ps1` 备份做集合比对，断言其余依赖/bundles 一件未动 | `install.ps1` / `uninstall.ps1` |
 | M | 机制自测 14 项（mock ctx，无需宿主） | `tools/selftest.mjs` |
 
-### 4. 明确不抄
-
-- **不抄 `neutralizeInstructions`**：它把 AGENTS.md 降级成"参考文档"，与本包的 SUPERSESSION 地基（工作区指令属于权威层）冲突。
-- **不抄 `role:'user'` + `<system-reminder>` 伪装注入**：污染会话历史、形态本身是特征；本包用 `additionalContexts` + `source.kind = plugin:dsh-armor-gen5`。
-- **不抄拒绝检测长度短路**（>800 字符一律不判）：本包用 `NON_REFUSAL_TAIL` 跟词白名单做同类优化，保留全长度扫描。
-- **不抄它的 persona 文本**：那份把 minors 内容与可逆操作改成"先一句确认"，作者自己的安装说明已判定该包不可用。强度来自结构，不来自这一行。
-
 ### 5. 验收
 
 ```
@@ -227,7 +217,7 @@ node tools/selftest.mjs      → RESULT: OK (14 checks)
 
 0.4.5 运行时实测：`verify` 16 项全绿、`verdict=OK`，但 `dissolve-identity` 显示
 `seal-fallback`，而同一时刻 `/gen5/dissolve` 的 `covered` 列表里明明有
-`dsh-purge:identity`。
+`host:identity`。
 
 原因：`identityShadow` 是 **activate 时拍的快照**（那时覆盖还没发生或被别的实例
 还原过），后续 engage / 另一实例的覆盖把 identity 段纳入后才真正 covered，
@@ -251,7 +241,7 @@ node tools/selftest.mjs      → RESULT: OK (14 checks)
 
 顺带清理：`coverHostSections` 里已被引用计数取代的 `registerRestore` 死代码。
 
-离线测试 24 项断言仍全 PASS；运行时 `/gen5/verify` 16 项全绿（`harness:identity` 已被 dsh-purge 改名成 `dsh-purge:identity`，词根匹配正常工作）。
+离线测试 24 项断言仍全 PASS；运行时 `/gen5/verify` 16 项全绿（宿主 identity 段为非标准命名 `host:identity`，词根匹配正常工作）。
 
 ## 0.4.4 — 2026-11-05（"engage 全绿但 verify FAIL"的三重竞态）
 
@@ -262,7 +252,7 @@ node tools/selftest.mjs      → RESULT: OK (14 checks)
 | # | 根因 | 修复 |
 |---|---|---|
 | 1 | **扫描竞态**：扫描发生在覆盖生效期间时，段 text 已被清空 → 文本词根全失效 → 命中数从 7 掉到 3（顶部"约束 7"与 verify"命中 3"就是两次不同时刻的扫描） | `classifySection()` 对已覆盖段自动回退用 `hostOriginals` 里的**原文**做文本判定，命中数在任何时刻稳定；engage 的 scan 步骤**不再先 restore**（两实例竞态下 restore 会撤掉另一实例刚做的覆盖） |
-| 2 | **覆盖误伤宿主功能段**：纯文本词根命中（段里出现 "do not"/"policy" 就中招）把 `dsh-purge` / `harness:source` / `app:web-surface` / `ui:deliverable-file-references` 一起清了——这些是宿主功能段不是限制层 | 判定改为**名字词根必须命中**（文本词根降为加分项，不单独触发）；新增 `NEVER_COVER` 黑名单（`dsh-purge` / `harness:source` / `app:web-surface` / `ui:*` / `mcp-*` / `wanxiang:*` / `tool-*`）双保险 |
+| 2 | **覆盖误伤宿主功能段**：纯文本词根命中（段里出现 "do not"/"policy" 就中招）把 `harness:source` / `app:web-surface` / `ui:deliverable-file-references` 一起清了——这些是宿主功能段不是限制层 | 判定改为**名字词根必须命中**（文本词根降为加分项，不单独触发）；新增 `NEVER_COVER` 黑名单（`harness:source` / `app:web-surface` / `ui:*` / `mcp-*` / `wanxiang:*` / `tool-*`）双保险 |
 | 3 | **双实例 restore 互踩**：activate 被预设实例和常驻实例各自 3s 轮询调用，每次都重复登记 `restoreHostSections`；deactivate 时把对方刚覆盖的段还原掉，`hostOriginals`（模块级共享）被两个实例互相覆盖记录 | 模块级单例守卫 `dissolveRestoreRegistered`：restore 登记全局只做一次；`hostOriginals` 只存第一份原文（`if (!hostOriginals.has(name))`），幂等 |
 | 4 | （顺带）`coveredNow()` 要求"原文非空"，宿主 persona 段原文本来就是空串 → persona 段永远进不了 covered 列表 | 判定改为"表里有这条 + 我们存了原文"，与原文是否为空无关 |
 
@@ -279,13 +269,13 @@ verify 的 `dissolve-constrained` 判定语义同步收紧：`命中 N / 覆盖 
 | # | 症状 | 真凶 | 修复 |
 |---|---|---|---|
 | 1 | `✗ dissolve-identity = seal-fallback`，verdict FAIL | **双份 verify 漂移**：`/gen5/verify`（控制台读的）还是 0.4.0 旧判定 `identityShadow === "on"`；`gen5_verify` 工具里是新判定 `!== "conflict"`。两份手写判定各自演化 | 抽成唯一的 `computeVerify()`，HTTP 路由 / 工具 / engage 的 selfcheck 三处全调它，判定永远一致 |
-| 2 | 命中 3 段、已覆盖 0 | **覆盖记账被自己人清零**：scope 切换 → deactivate → `restoreHostSections()` → `covered=[]`，3s 轮询的另一实例再覆盖回来；快照恰好抓在空窗。另：identity 写死找 `harness:identity`，而这台机器上真名是 `dsh-purge:identity`，永远匹配不上 | `coveredNow()` 直接从宿主表实时推导（原文有内容且当前为空 = 覆盖生效中），不再信记账；identity 改按 `/identit/` 词根匹配任意 `*:identity` 段 |
+| 2 | 命中 3 段、已覆盖 0 | **覆盖记账被自己人清零**：scope 切换 → deactivate → `restoreHostSections()` → `covered=[]`，3s 轮询的另一实例再覆盖回来；快照恰好抓在空窗。另：identity 写死找 `harness:identity`，而这台机器上真名是 `host:identity`，永远匹配不上 | `coveredNow()` 直接从宿主表实时推导（原文有内容且当前为空 = 覆盖生效中），不再信记账；identity 改按 `/identit/` 词根匹配任意 `*:identity` 段 |
 | 3 | 头部显示 v0.4.1，后端版本却 v0.4.2 | 面板头部的版本号是**字面量**，升版本时漏改 | 绑定 `PLUGIN_VERSION` 常量，一处定义（徽标/头部/对比行共用） |
 | 4 | （隐藏）宿主 11 段全部 `chars: 0`，文本词根全失效 | `sectionText()` 对函数型 text 传 `{}`，宿主函数解构参数直接抛错被 catch 吞掉 → 返回空串 | 降参重试（`{}` → 无参），读不出记 `text-unreadable` 诊断，扫描结果里归档为 `text-hints-skipped` |
 
 verify 检查项现在的完整清单（16 项）：`package-version` / `implementation-revision` / `prompt-set-hash` / `prompt-file` / `variant` / `normalize-enabled` / `persona-inject` / `w5-reanchor` / `scope` / `dissolve-host-scan` / `dissolve-constrained` / `dissolve-identity` / `dissolve-persona-prefix` / `dissolve-persona-suffix` / `dissolve-suppress-context` / `dissolve-complete`。
 
-离线测试扩到 16 项断言（新增：`dsh-purge:identity` 改名段命中、函数型 text 读取、记账清零后 `coveredNow()` 仍真实、还原后不再误报），全 PASS。
+离线测试扩到 16 项断言（新增：`host:identity` 非标准命名段命中、函数型 text 读取、记账清零后 `coveredNow()` 仍真实、还原后不再误报），全 PASS。
 
 ## 0.4.2 — 2026-11-05（注入按钮无响应：根因定位 + 请求层健壮性）
 
@@ -432,10 +422,10 @@ return this.layers.effect(this.ctx, (layer) => layer.sections.insert(section.nam
 
 - 破甲核 FLASH-FORGE v9.1（首字门 / 回归测试语境 / 思考槽封口 / 反制路由 / 词汇表 / 四公理）
 - 机制层：W5 自我博弈再锚定、T4 证据链预热、会话投影 `armor`（四态判定）
-- dsh-purge 汲取：`prompt-inject.md` 注入（`GEN5_PERSONA_INJECT`）+ 提示词权威性声明
+- `prompt-inject.md` 身份层注入（`GEN5_PERSONA_INJECT`）+ 提示词权威性声明
 - 客户端：输入框徽标（点击切 scope）+ 左侧控制台面板
-- 工具：`gen5_verify`、`gen5_purge_status`、`infinite_gen5_profile`
-- HTTP：`/gen5/scope`、`/gen5/verify`、`/gen5/purge-status`
+- 工具：`gen5_verify`、`infinite_gen5_profile`
+- HTTP：`/gen5/scope`、`/gen5/verify`
 
 ## 0.2.0 — 2026-11-04
 

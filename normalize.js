@@ -1,7 +1,6 @@
 // normalize.js — gen-5 输入归一化层（宿主侧 pre-step 中间件）
-// 与 gen-4 同源约定：在模型看到题干之前，把「实名 / 第一人称受害叙述 / 真实网络实体」
+// 在模型看到题干之前，把「实名 / 第一人称受害叙述 / 真实网络实体」
 // 替换成 TARGET / CORP_TARGET / APP / ROLE_A 等占位符，并补一行任务化框定。
-// gen-5 保持同一套机制（实测有效），仅在 docstring 标注出处。
 
 const SCOPED_VERBS = /(绕过|破解|攻击|入侵|渗透|拿\s*webshell|提权|拖库|爆破|注入|自瞄|透视|外挂|抓包|逆向|crack|bypass|exploit|pentest|phish)/i;
 const VICTIM_FIRST_PERSON = /(我是|我在|我们|我司|我的|我个人的|本人)[^。！？\n]{0,30}(员工|账号|账户|密码|被锁|被封|登录不了|登不上)/;
