@@ -1,4 +1,4 @@
-# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
+﻿# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 # 前提：目标机器已安装 DeepSeek Harness 并至少成功启动过一次（存在 ~/.dsh）。
 #

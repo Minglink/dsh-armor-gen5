@@ -1,4 +1,4 @@
-# uninstall.ps1 — dsh-armor-gen5 卸载
+﻿# uninstall.ps1 — dsh-armor-gen5 卸载
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1 [-DshHome "D:\your\.dsh"]
 
 [CmdletBinding()]

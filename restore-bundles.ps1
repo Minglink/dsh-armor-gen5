@@ -1,4 +1,4 @@
-# restore-bundles.ps1 — 一键恢复 desktop profile 的 bundles 列表
+﻿# restore-bundles.ps1 — 一键恢复 desktop profile 的 bundles 列表
 #
 # 场景:DSH 崩溃恢复会调用 disableAllPlugins(),把 profile 的 bundles
 # 清成 stock(@deepseek-ai/dsh-base + dsh-web-app + dsh-community),
