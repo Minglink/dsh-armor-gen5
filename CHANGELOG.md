@@ -1,5 +1,17 @@
 # CHANGELOG — dsh-armor-gen5（无限五代 破甲）
 
+## 0.2.1 — 2026-11-06（安装器与官方安装方式兼容修复）
+
+| # | 问题 | 现象 | 修法 |
+|---|---|---|---|
+| 1 | `install.ps1` [4.5] 无条件把 `node_modules\dsh-armor-gen5` 删成 junction | 用官方 `github:` 方式装好的真实包目录被换成指向 `~\.dsh\plugins\dsh-armor-gen5` 的 junction，依赖声明仍是 `github:`；副本缺失时 Node 报 `包元信息错误 … ENOENT`，DSH 报 profile is no longer self-contained | 先读依赖 spec，非 `file:*` 直接跳过 junction，保留官方安装的目录 |
+| 2 | 文档缺官方安装方式 | 用户用插件管理器装完再跑 `install.ps1` 就触发问题 1 | README / INSTALL.md 增加「方式 B：官方安装（github: 源码）」，并注明两种方式可共存 |
+| 3 | 方式 B 的 pnpm 路径写死 | 部分 DSH 版本下 `resources\runtime\pnpm\bin\pnpm.mjs` 不存在，照抄文档直接失败 | 改为双路径自动探测（`primary-runtime\dependencies\pnpm` / `pnpm`） |
+| 4 | 版本号不能标识内容 | 内容更新但 `version` 不变，pnpm 对同名同版本不做内容比对，出现"升级不生效" | 本版起内容变更同步提升 `version` / `dsh.version`（0.2.1）；补 `engines.dsh: ">=0.2.1-0"` 让插件管理器预检能拦截不兼容宿主 |
+| 5 | README 宣传语与实现不符 | "宿主零文件改动、卸载即完整还原"未说明安装器会改 profile 的 package.json / cordis.patch.yml / armor-kernel / junction | 改为准确表述：破甲动作零宿主文件改动（运行时内存级），安装/卸载改写的项由脚本备份并逐项还原 |
+
+验收：`node --check index.js` / `client.js` 双绿；三种安装方式（install.ps1 / tgz / github:）互不破坏。
+
 ## 0.2.0 补丁 6 — 2026-11-06（安装器三个真 bug，交付前试装发现）
 
 在隔离目录做端到端试装时抓到：

@@ -133,9 +133,14 @@ try {
 } finally { Pop-Location }
 
 # ---- 4.5 node_modules junction（防 pnpm 复制不完整导致 failed to import）----
-# pnpm 11/12 交替重装时对 file: 依赖的复制可能缺文件；junction 直指插件正本，内容永远一致。
+# 只对 file: 依赖做 junction。github:/npm 等官方安装方式下 pnpm 装的是真实包目录，
+# 强行换成 junction 会让 realpath 指向 plugins 副本，副本缺失即报告"包元信息错误: ENOENT"，
+# 同时 DSH 报 profile is no longer self-contained。非 file: 依赖一律保留原状。
+$spec = "$($pkg.dependencies.PSObject.Properties[$pluginName].Value)"
 $nmLink = Join-Path $profileDir "node_modules\$pluginName"
-if (Test-Path $nmLink) {
+if ($spec -notlike "file:*") {
+    Write-Host "[4.5] 依赖是 $spec（非 file:），保留官方安装的 node_modules 目录，跳过 junction"
+} elseif (Test-Path $nmLink) {
     $linkItem = Get-Item $nmLink -Force
     if ($linkItem.LinkType -ne "Junction") {
         Remove-Item $nmLink -Recurse -Force

@@ -1,4 +1,4 @@
-# 无限五代 破甲 v0.2.0 — 安装说明
+# 无限五代 破甲 v0.2.1 — 安装说明
 
 DeepSeek Harness 插件（包名 `dsh-armor-gen5`）。把「破甲模式」注册为一个可选 agent preset，
 并给选中的会话追加破甲核系统提示（FLASH-FORGE v9.1）、运行期热配置、W5 再锚定与 T4 证据链。
@@ -56,17 +56,42 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DshHome "D:\y
 
 ```powershell
 # 1. 把 tgz 放进 profile 的包目录
-copy dsh-armor-gen5-0.2.0.tgz "$HOME\.dsh\profiles\desktop\desktop-packages\"
+copy dsh-armor-gen5-0.2.1.tgz "$HOME\.dsh\profiles\desktop\desktop-packages\"
 
 # 2. profile package.json 里登记
-#    dependencies: "dsh-armor-gen5": "file:./desktop-packages/dsh-armor-gen5-0.2.0.tgz"
+#    dependencies: "dsh-armor-gen5": "file:./desktop-packages/dsh-armor-gen5-0.2.1.tgz"
 #    dsh.profile.bundles 追加 "dsh-armor-gen5"
 
-# 3. 用 DSH 自带的 pnpm 安装
-node "C:\Users\<你>\AppData\Local\Programs\DeepSeek Harness\resources\runtime\pnpm\bin\pnpm.mjs" install --no-frozen-lockfile
+# 3. 用 DSH 自带的 pnpm 安装（路径随 DSH 版本不同，自动探测）：
+$pnpm = @(
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\primary-runtime\dependencies\pnpm\bin\pnpm.mjs",
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\pnpm\bin\pnpm.mjs"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+node $pnpm install --no-frozen-lockfile
 ```
 
 > pnpm 对同名同版本的 file: tgz 不做内容比对；换了包内容要删掉 `node_modules\dsh-armor-gen5` 再装。
+
+### 方式 C：官方插件管理器 / github: 源码安装（推荐给别人用）
+
+在 profile `package.json` 里直接声明 github 源，由插件管理器或 pnpm 安装：
+
+```json
+"dependencies": {
+  "dsh-armor-gen5": "github:Minglink/dsh-armor-gen5"
+}
+```
+
+```powershell
+$pnpm = @(
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\primary-runtime\dependencies\pnpm\bin\pnpm.mjs",
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\pnpm\bin\pnpm.mjs"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+node $pnpm install --no-frozen-lockfile
+```
+
+pnpm 装下来的是**真实包目录**。此时再运行 `install.ps1` 不会破坏它：脚本检测到依赖不是 `file:` 会自动跳过 junction（`[4.5]` 分支），两种安装方式可共存。
+`dsh.profile.bundles` 仍需追加 `"dsh-armor-gen5"`；`armor-kernel/` 与 preset 声明只在用 `install.ps1` 时自动写入（官方方式可用 `install.ps1` 补齐，或手动跳过 preset 只保留插件本体）。
 
 ---
 
@@ -76,7 +101,7 @@ node "C:\Users\<你>\AppData\Local\Programs\DeepSeek Harness\resources\runtime\p
 
 | 检查项 | 期望 |
 |---|---|
-| `package-version` | `0.2.0` |
+| `package-version` | `0.2.1` |
 | `implementation-revision` | `20261105-gen5-forge-v915-runtime` |
 | `runtime-config` | `hot file`（读到了热配置） |
 | `w5-reanchor` | `pool 5 · 3/20 turns` |

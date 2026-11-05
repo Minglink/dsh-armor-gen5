@@ -11,14 +11,34 @@
 DeepSeek Harness 原创破甲插件。一条命令装进宿主，会话选中「破甲模式」即进入全链路破甲态：
 
 **限制层自动瓦解 → 破甲核接管系统提示词 → 证据链预热铺场 → 拒绝即修复。**
-未选中预设的会话零注入，宿主零文件改动，卸载即完整还原。
+未选中预设的会话零注入；破甲动作全部发生在运行时内存里、不 patch 宿主文件；卸载脚本逐项还原并做一致性断言。
 
 ---
 
 ## 🚀 快速开始
 
+**方式 A：本地脚本一键装**
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+> 脚本会改动 profile 的 `package.json`、`cordis.patch.yml`、`armor-kernel/` 与 `node_modules` 链接（安装前都会备份）。依赖为 `file:` 时才做 junction；github: 安装的依赖自动跳过，不会破坏官方安装。
+
+**方式 B：官方安装（插件管理器 / github: 源码，推荐转发给别人）**
+
+```json
+"dependencies": { "dsh-armor-gen5": "github:Minglink/dsh-armor-gen5" }
+```
+
+再用 DSH 自带 pnpm 同步（路径自动探测）：
+
+```powershell
+$pnpm = @(
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\primary-runtime\dependencies\pnpm\bin\pnpm.mjs",
+  "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\pnpm\bin\pnpm.mjs"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+node $pnpm install --no-frozen-lockfile
 ```
 
 装完**完全退出 DSH 再启动**（托盘退出，不是关窗口）：
