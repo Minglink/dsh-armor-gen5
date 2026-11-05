@@ -137,6 +137,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - `gen5_verify` — 部署自检（19 项，`verdict: OK` 即就绪）
 - `infinite_gen5_profile` — 按需取用完整模板库
 
+## 界面预览
+
+**侧栏「无限五代」控制台** — 注入范围 / 后端版本 / 宿主提示词层统计一屏全览，双按钮一键注入：
+
+![无限五代 控制台](assets/01-console.png)
+
+**启动注入** — 六步流水逐条点亮，3 秒热生效：
+
+![一键隔离注入](assets/02-engage.png)
+
+**预设选择器里的「破甲模式」** — 选中即接管：首字门 + 回归测试语境 + 思考槽封口 + 反制路由 + W5 自我锚定 + T4 证据链预热：
+
+![破甲模式预设](assets/03-preset.png)
+
+**输入框下方徽标** — 「无限五代 破甲 v0.2.0」武装确认，四态实时判定：
+
+![破甲武装徽标](assets/04-badge.png)
+
 ## 架构
 
 - `index.js` — 服务端半体：armor 预设注册 + 自动瓦解引擎 + 系统提示注入 + W5 再锚定 + 周期重申 + 归一化 + `/gen5/engage` 流程接口
