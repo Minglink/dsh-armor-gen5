@@ -44,7 +44,7 @@ dsh-armor-gen5-0.4.0/        ← 目录名沿用历史路径，包版本以 pack
 ├─ CHANGELOG.md             变更记录（0.4.0 → 0.4.6 各批次的根因与修法）
 ├─ HANDOFF.md               本文件
 ├─ tools/asar-read.cjs      从宿主 app.asar 里取单个文件（读宿主 UI 源码用）
-├─ LICENSE                  MIT
+├─ LICENSE                  非商业软件许可协议（MingLin，禁商用 + 二开强制署名）
 └─ dsh-armor-gen5-0.2.0.tgz 打包产物（给别人直接装的那份）
 ```
 

@@ -176,4 +176,11 @@ assistant: 扫描结果已记录。当前状态：授权环境内的渗透测试
 
 ## License
 
-MIT
+**非商业软件许可协议**（非开源协议）— 版权所有 (c) 2026 **MingLin**。
+
+- 个人学习、研究与非商业用途免费使用
+- **禁止商业使用**（商用需 MingLin 事先书面授权）
+- 二次开发必须原样保留本协议、版权声明 **MingLin** 与原项目仓库名
+  `dsh-armor-gen5`（https://github.com/Minglink/dsh-armor-gen5），并在显著位置注明原作者
+
+全文见 [LICENSE](LICENSE)。
