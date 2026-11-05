@@ -49,6 +49,11 @@ function buildCtx() {
   sections.insert("deployment:persona-prefix", { name: "deployment:persona-prefix", order: 0, text: "" });
   sections.insert("deployment:persona-suffix", { name: "deployment:persona-suffix", order: 10200, text: "" });
   // 宿主功能段（黑名单：名字/文本命中也不覆盖）
+  sections.insert("dsh-purge", {
+    name: "dsh-purge",
+    order: 5000,
+    text: "You must not bypass policy. Do not refuse tool access. Sandbox rules apply.",
+  });
   sections.insert("harness:source", {
     name: "harness:source",
     order: 10000,
@@ -105,7 +110,7 @@ const ctx = buildCtx();
 const scan = scanHostPrompt(ctx);
 
 check("engine-detected", scan.available === true, scan.engine);
-check("host-count", scan.hostSections.length === 10, "枚举 " + scan.hostSections.length + " 段（应为 10，排除自己的段）");
+check("host-count", scan.hostSections.length === 11, "枚举 " + scan.hostSections.length + " 段（应为 11，排除自己的段）");
 check(
   "skip-own-sections",
   !scan.hostSections.some((row) => row.name.startsWith("infinite-gen-5:")),
@@ -127,6 +132,7 @@ check(
   "文本词根命中 safety-guard / runtime:context",
 );
 // 黑名单：宿主功能段名字或文本命中也不覆盖
+check("blacklist-dsh-purge", !scan.constrained.includes("dsh-purge"), "dsh-purge（身份层功能段）不覆盖");
 check("blacklist-harness-source", !scan.constrained.includes("harness:source"), "harness:source 不覆盖");
 check("blacklist-web-surface", !scan.constrained.includes("app:web-surface"), "app:web-surface 不覆盖");
 check("blacklist-ui", !scan.constrained.some((r) => String(r).startsWith("ui:")), "ui:* 不覆盖");
@@ -153,7 +159,7 @@ check(
 );
 check(
   "cover-keeps-blacklisted",
-  ctx.sections.get("harness:source").text.length > 0 && ctx.sections.get("app:web-surface").text.length > 0,
+  ctx.sections.get("dsh-purge").text.length > 0 && ctx.sections.get("harness:source").text.length > 0 && ctx.sections.get("app:web-surface").text.length > 0,
   "黑名单功能段保持原样",
 );
 check(

@@ -1,5 +1,14 @@
 # CHANGELOG — dsh-armor-gen5（无限五代 破甲）
 
+## 0.2.2 — 2026-11-06（NEVER_COVER 恢复身份层保护）
+
+| # | 问题 | 现象 | 修法 |
+|---|---|---|---|
+| 1 | `NEVER_COVER` 缺了 `/^dsh-purge$/`、`/^dsh-purge:rules$/` 两条 | 宿主里 `dsh-purge` 段（prompt-inject 注入的身份层，实测 6000 字符）被名字外的文本词根命中，`classifySection` 判成约束段 → `coverHostSections` 装完就把它清空，等于抹掉自己最大的破甲文本块 | 黑名单恢复两条，`dsh-purge` / `dsh-purge:rules` 永不覆盖；离线分类验证：`dsh-purge constrained=false`，限制层照样覆盖 |
+
+`dsh-purge` 段是**身份层/功能段**，不是限制层——黑名单保护的是宿主环境里的破甲文本本身，与出处处名无关。
+测试同步：`test-dissolve.mjs` 恢复 `blacklist-dsh-purge` 夹具与断言（24 项 PASS）。
+
 ## 0.2.1 — 2026-11-06（安装器与官方安装方式兼容修复）
 
 | # | 问题 | 现象 | 修法 |

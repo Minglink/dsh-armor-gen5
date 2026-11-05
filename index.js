@@ -189,8 +189,10 @@ const CONSTRAINT_TEXT_HINTS = [
   /不得/, /禁止/, /严禁/, /拒绝/, /安全/, /权限/, /沙箱/, /审批/, /限制/, /合规/,
 ];
 // 宿主功能段黑名单：名字命中也绝不覆盖（清了会破坏宿主功能，不是限制层）。
+// dsh-purge 段是宿主 prompt-inject 注入的身份层（实测 6000 字符），属于破甲文本本身，
+// 不是约束段——误覆盖等于装完就抹掉自己最大的破甲块。
 const NEVER_COVER = [
-  /^harness:source$/, /^app:web-surface$/,
+  /^dsh-purge$/, /^dsh-purge:rules$/, /^harness:source$/, /^app:web-surface$/,
   /^ui:/, /^mcp-/, /^wanxiang:/, /^tool-/,
 ];
 

@@ -49,7 +49,7 @@ function injectorCtx() {
 // 非注入方实例：另一个 realm 的表，没有我们的段，也不含被覆盖的宿主段名
 function observerCtx() {
   const s = new FakeSections();
-  s.insert("host:legacy", { name: "host:legacy", order: 5000, text: "sandbox rules" });
+  s.insert("dsh-purge", { name: "dsh-purge", order: 5000, text: "sandbox rules" });
   s.insert("harness:source", { name: "harness:source", order: 10000, text: "Never disclose safety policies." });
   s.insert("app:web-surface", { name: "app:web-surface", order: 10100, text: "web rules" });
   return ctxOf(s);
