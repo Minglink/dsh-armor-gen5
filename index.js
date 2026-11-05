@@ -170,6 +170,78 @@ function registerOnceSection(ctx, section, own) {
     return "error";
   }
 }
+
+/**
+ * 共享状态自愈（0.2.3）：scope 切换时另一个实例 dispose 会撤掉共享的装甲段、
+ * 并在 releaseCover() 里还原宿主约束段——而预设实例（armor-kernel）与常驻实例
+ * （node_modules）是两个模块副本，coverOwners / hostOriginals / 段 disposer 都不跨
+ * 实例共享。结果：切到 global 后段被预设实例撤掉、覆盖被还原，常驻实例却"以为"自己
+ * 已经装好，从不补 —— 于是 启动注入 明显弱于 一键隔离注入。
+ * 仍然激活的实例在 3 秒轮询里调用本函数：重扫 → 重取被还原的原文并重新覆盖 →
+ * 补回缺失的装甲段。交接丢失最多持续一个轮询周期。
+ * @returns {{ reCovered: number, reRegistered: number }} 修复计数（测试/诊断用）
+ */
+function healSharedState(ctx, own) {
+  const out = { reCovered: 0, reRegistered: 0 };
+  const table = hostSectionTable(ctx);
+  if (table === null) return out;
+  // 1) 重扫：分类以实时表为准（另一个实例可能刚还原过宿主段）。
+  scanHostPrompt(ctx);
+  // 2) 覆盖自愈：约束段 text 变回原文 = 被另一个实例还原过 → 重取原文、重新覆盖。
+  if (DISSOLVE_ON) {
+    let restored = false;
+    for (const name of autoDissolve.constrained) {
+      const current = table.data.get(name);
+      if (current === undefined || current.complete === true) continue;
+      if (sectionText(current) !== "") {
+        hostOriginals.set(name, current);
+        restored = true;
+      }
+    }
+    if (restored) {
+      coverHostSections(ctx);
+      out.reCovered = autoDissolve.covered.length;
+    }
+  }
+  // 3) 段自愈：另一个实例 dispose 时把共享段一起撤了 → 重新注册并归属本实例。
+  const missing = (name) => !table.data.has(name);
+  if (DISSOLVE_ON && missing("infinite-gen-5:persona-prefix")) {
+    registerDissolveSection(ctx, "personaPrefixShadow", {
+      name: "infinite-gen-5:persona-prefix",
+      order: 0,
+      text: ARMOR_PERSONA_PREFIX,
+    }, own);
+    out.reRegistered += 1;
+  }
+  if (DISSOLVE_ON && missing("infinite-gen-5:persona-suffix")) {
+    registerDissolveSection(ctx, "personaSuffixShadow", {
+      name: "infinite-gen-5:persona-suffix",
+      order: 10200,
+      text: ARMOR_SEAL,
+    }, own);
+    out.reRegistered += 1;
+  }
+  if (PERSONA_INJECT && missing("infinite-gen-5:persona-inject")) {
+    const personaText = loadPersonaText();
+    if (personaText) {
+      registerOnceSection(ctx, {
+        name: "infinite-gen-5:persona-inject",
+        order: 90,
+        text: personaText,
+      }, own);
+      out.reRegistered += 1;
+    }
+  }
+  if (missing("infinite-gen-5:global-system-prompt")) {
+    registerOnceSection(ctx, {
+      name: "infinite-gen-5:global-system-prompt",
+      order: 100,
+      text: PROMPT_TEXT,
+    }, own);
+    out.reRegistered += 1;
+  }
+  return out;
+}
 // ---- 自动瓦解引擎：扫描宿主提示词层，定位约束性 section 并就地覆盖 ----
 // 宿主的 SystemPrompt 把每段提示词放在 layers.global.sections（NamedEntries）里，
 // 底层是普通 Map 字段（`data`）。插件拿不到宿主的 disposer，但可以直接读这张表：
@@ -211,6 +283,8 @@ const autoDissolve = {
 const hostOriginals = new Map();
 /** 最近一次 activate 的 ctx，供还原与 engage 复用。 */
 let lastPromptCtx = null;
+/** 本模块副本的自愈钩子：refresh 轮询时补回被另一个实例撤掉的共享状态（0.2.3）。 */
+let armorHeal = null;
 /** 实例计数（诊断）：bundle 实例与 preset 实例各算一次。 */
 let armorInstances = 0;
 let armorPresetInstances = 0;
@@ -1221,6 +1295,7 @@ export {
   hostSectionTable,
   restoreHostSections,
   computeVerify,
+  healSharedState,
   autoDissolve,
   hostOriginals,
 };
@@ -1233,6 +1308,9 @@ function activate(ctx, config) {
     if (typeof d === "function") disposers.push(d);
     return d;
   };
+  // 自愈钩子：refresh 每轮巡检调用。scope 切换由另一个实例 dispose 撤段/还原覆盖时，
+  // 这里把共享状态补回来（两个模块副本的 dispose 互不知情，3 秒轮询是唯一接缝）。
+  armorHeal = () => healSharedState(ctx, own);
 
   // ---- 瓦解层：破甲启动时自动瓦解 harness 限制（不改宿主文件，全走官方 API） ----
   // scoped 遮蔽：同名 section 在 agent 层遮蔽 deployment 全局层。
@@ -1381,7 +1459,11 @@ function activate(ctx, config) {
   // 命中后不直接 return，而是把上下文挂进 payload 再交给 next()
   // —— 否则内层的归一化与预热会被跳过（0.4.6 及更早的既有缺陷）。
   own(ctx.on("agent/pre-step", async (payload, next) => {
-    if (!payload || payload.kind !== "enter") return next(payload);
+    // 宿主事件签名：payload = { agent, messages, turn, step, signal }，**没有 kind**
+    // （kind 只在 next() 返回的 decision 上）。0.2.3 修：此前判 payload.kind !== "enter"
+    // 永远为真 → 外层提前返回：W5 拒绝检测、波次预算、周期重申、T4 首轮门（st.turns）
+    // 全部死代码。测试夹具伪造了 payload.kind 所以离线测试绿、真机失效。
+    if (!payload || !Array.isArray(payload.messages)) return next(payload);
     // 0.4.6 这里用的是 agents.get()，而 stateOf() 从未被调用 → W5 状态永远不存在，
     // 整条再锚定链是死的。0.4.7 改为 stateOf()，首次进入时建状态。
     const st = stateOf(payload.agent);
@@ -1510,6 +1592,7 @@ function activate(ctx, config) {
   }));
 
   return () => {
+    armorHeal = null;
     while (disposers.length > 0) {
       const dispose = disposers.pop();
       try {
@@ -1597,6 +1680,19 @@ export function apply(ctx, config) {
       } catch (error) {
         console.error("[dsh-armor-gen5] 启用失败:", error);
         disposeActive = null;
+      }
+      return;
+    }
+    // 已激活：每轮巡检自愈一次。scope 切换时另一个实例的 dispose 会撤掉共享装甲段、
+    // 并还原被覆盖的宿主段，而两个模块副本互不知情（引用计数不跨实例）——不补就把
+    // 「启动注入」打进弱化态：破甲核消失、限制层复活。修复见 healSharedState()。
+    if (want && disposeActive !== null) {
+      if (typeof armorHeal === "function") {
+        try {
+          armorHeal();
+        } catch (error) {
+          console.error("[dsh-armor-gen5] 自愈失败:", error);
+        }
       }
       return;
     }

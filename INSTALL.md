@@ -1,4 +1,4 @@
-# 无限五代 破甲 v0.2.2 — 安装说明
+# 无限五代 破甲 v0.2.3 — 安装说明
 
 DeepSeek Harness 插件（包名 `dsh-armor-gen5`）。把「破甲模式」注册为一个可选 agent preset，
 并给选中的会话追加破甲核系统提示（FLASH-FORGE v9.1）、运行期热配置、W5 再锚定与 T4 证据链。
@@ -56,10 +56,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DshHome "D:\y
 
 ```powershell
 # 1. 把 tgz 放进 profile 的包目录
-copy dsh-armor-gen5-0.2.2.tgz "$HOME\.dsh\profiles\desktop\desktop-packages\"
+copy dsh-armor-gen5-0.2.3.tgz "$HOME\.dsh\profiles\desktop\desktop-packages\"
 
 # 2. profile package.json 里登记
-#    dependencies: "dsh-armor-gen5": "file:./desktop-packages/dsh-armor-gen5-0.2.2.tgz"
+#    dependencies: "dsh-armor-gen5": "file:./desktop-packages/dsh-armor-gen5-0.2.3.tgz"
 #    dsh.profile.bundles 追加 "dsh-armor-gen5"
 
 # 3. 用 DSH 自带的 pnpm 安装（路径随 DSH 版本不同，自动探测）：
@@ -101,7 +101,7 @@ pnpm 装下来的是**真实包目录**。此时再运行 `install.ps1` 不会�
 
 | 检查项 | 期望 |
 |---|---|
-| `package-version` | `0.2.2` |
+| `package-version` | `0.2.3` |
 | `implementation-revision` | `20261105-gen5-forge-v915-runtime` |
 | `runtime-config` | `hot file`（读到了热配置） |
 | `w5-reanchor` | `pool 5 · 3/20 turns` |

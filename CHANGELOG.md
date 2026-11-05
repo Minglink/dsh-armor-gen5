@@ -1,5 +1,14 @@
 # CHANGELOG — dsh-armor-gen5（无限五代 破甲）
 
+## 0.2.3 — 2026-11-06（W5/T4 死代码 + scope 切换交接丢失）
+
+| # | 问题 | 现象 | 根因 | 修法 |
+|---|---|---|---|---|
+| 1 | **W5/T4/周期重申在真机全是死代码** | 静态破甲核还在，但"拒绝即修复"完全不动作：W5 救援、T4 证据链预热、每 N 轮工作提醒一个都不触发 | 外层 `agent/pre-step` 处理器判 `payload.kind !== "enter"` 提前返回。宿主事件的 payload 是 `{ agent, messages, turn, step, signal }`，**没有 kind**（kind 只在 `next()` 返回的 decision 上，宿主 12 处内置用法皆 `decision.kind`）；`undefined !== "enter"` 恒真 → `st.turns` 永不递增 → T4 的 `st.turns !== 1` 门也恒真 | 去掉 payload.kind 判定，改为 payload 形状校验；`selftest.mjs` 夹具删除伪造的 `kind:"enter"`，按生产形状回归 |
+| 2 | **切到「启动注入」(global) 后破甲明显变弱** | 隔离注入正常，启动注入像少了一半机制：破甲核段消失、宿主限制层复活 | 预设实例（`armor-kernel/`）与常驻实例（`node_modules/`）是**两个模块副本**：`registerOnceSection` 对"已注册"只记 existing 不持有 disposer；`coverOwners`/`hostOriginals` 也不跨实例共享。切 scope 时后者先 dispose → 撤掉共享装甲段 + `releaseCover()` 还原宿主约束段；前者已激活却从不补回 | 激活实例每 3 秒轮询调用 `healSharedState()`：重扫 → 重取被还原的原文重新覆盖 → 补回缺失的 persona/破甲核段（归属本实例）。新增 5 项回归测试（`handoff-*`） |
+
+验收：`selftest` 14 项、`test-dissolve` 29 项（含 5 项交接自愈回归）、`test-verify` 8 项全 PASS；两种注入范围在 scope 互相切换后状态自愈（≤3 秒一轮）。
+
 ## 0.2.2 — 2026-11-06（NEVER_COVER 恢复身份层保护）
 
 | # | 问题 | 现象 | 修法 |

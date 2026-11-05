@@ -82,7 +82,9 @@ const messagesOf = (user, assistant) => {
 };
 const ctxTexts = (out) => ((out && out.additionalContexts) || []).map((c) => c.content[0].text);
 const payloadOf = (user, assistant, agent) => ({
-  kind: "enter",
+  // 生产事件形状：{ agent, messages, turn, step, signal } —— **不带 kind**。
+  // 0.2.3 之前这里伪造了 kind:"enter"，掩盖了 W5 外层"payload.kind 永为 undefined
+  // → 全链路死代码"的生产 bug。别再加回来。
   agent,
   step: 1,
   messages: messagesOf(user, assistant),

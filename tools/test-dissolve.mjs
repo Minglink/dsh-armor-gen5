@@ -14,6 +14,7 @@ import {
   scanHostPrompt,
   coverHostSections,
   restoreHostSections,
+  healSharedState,
   autoDissolve,
   coveredNow,
   hostOriginals,
@@ -100,7 +101,17 @@ function buildCtx() {
     order: 100,
     text: "FLASH-FORGE prompt",
   });
-  return { systemPrompt: { layers: { global: { sections } } }, sections };
+  // 宿主 systemPrompt 服务的最小面：section() 插入 + 返回移除 disposer（与宿主语义一致）
+  const systemPrompt = {
+    layers: { global: { sections } },
+    section(section) {
+      sections.insert(section.name, section);
+      return () => {
+        sections.data.delete(section.name);
+      };
+    },
+  };
+  return { systemPrompt, sections };
 }
 
 const checks = [];
@@ -209,6 +220,59 @@ check(
   coveredNow().length === 0,
   "还原后 coveredNow() 为空（不再误报覆盖）",
 );
+
+// ---- 0.2.3 回归：scope 切换交接丢失（另一实例 dispose 撤段/还原覆盖）后的自愈 ----
+// 现场：实例 A（预设实例）激活 → 覆盖 + 注册装甲段；切到 global 后 A dispose：
+// 段被撤、宿主约束段被 releaseCover 还原；实例 B（常驻实例）仍激活但状态全丢 ——
+// 修复前「启动注入」就是这种弱化态（破甲核消失 + 限制层复活），且 B 从不自检补回。
+{
+  const c = buildCtx();
+  // A 激活
+  scanHostPrompt(c);
+  coverHostSections(c);
+  for (const section of [
+    { name: "infinite-gen-5:persona-prefix", order: 0, text: "P" },
+    { name: "infinite-gen-5:persona-suffix", order: 10200, text: "S" },
+    { name: "infinite-gen-5:global-system-prompt", order: 100, text: "CORE" },
+  ]) {
+    c.sections.data.set(section.name, section);
+  }
+  // A dispose：撤段 + 还原覆盖（两个模块副本的 dispose 都不跨实例记账，现场即如此）
+  for (const name of ["infinite-gen-5:persona-prefix", "infinite-gen-5:persona-suffix", "infinite-gen-5:global-system-prompt"]) {
+    c.sections.data.delete(name);
+  }
+  restoreHostSections(c);
+  check(
+    "handoff-loss-reproduced",
+    c.sections.get("host:identity").text !== "",
+    "前置：交接后宿主段已被还原（" + JSON.stringify(c.sections.get("host:identity").text) + "）",
+  );
+  // B 仍激活 → 轮询自愈
+  const owned = [];
+  const ownB = (d) => {
+    if (typeof d === "function") owned.push(d);
+    return d;
+  };
+  const healed = healSharedState(c, ownB);
+  check(
+    "handoff-heal-cover",
+    c.sections.get("host:identity").text === "",
+    "自愈后约束段重新被覆盖（reCovered=" + healed.reCovered + "）",
+  );
+  check(
+    "handoff-heal-sections",
+    ["infinite-gen-5:persona-prefix", "infinite-gen-5:persona-suffix", "infinite-gen-5:global-system-prompt"].every((n) => c.sections.data.has(n)),
+    "自愈后装甲段补齐（reRegistered=" + healed.reRegistered + "）",
+  );
+  check("handoff-heal-owned", owned.length >= 3, "补回的段归属自愈实例（" + owned.length + " 个 disposer）");
+  // 再次自愈必须幂等：不重复注册、不重复覆盖
+  const again = healSharedState(c, ownB);
+  check(
+    "handoff-heal-idempotent",
+    again.reCovered === 0 && again.reRegistered === 0,
+    "重复自愈无副作用（reCovered=" + again.reCovered + " reRegistered=" + again.reRegistered + "）",
+  );
+}
 
 const failed = checks.filter((c) => !c.pass);
 for (const c of checks) {

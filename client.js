@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({
     var ANIM_CSS =
       "@keyframes dshArmorPulse{0%,100%{box-shadow:0 0 2px rgba(34,197,94,.5);opacity:1}50%{box-shadow:0 0 12px rgba(34,197,94,1);opacity:.55}}@keyframes dshArmorFlash{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}";
 
-    var PLUGIN_VERSION = "0.2.2";
+    var PLUGIN_VERSION = "0.2.3";
     var BADGE_TEXT = "无限五代 破甲 v" + PLUGIN_VERSION;
     var BADGE_LABEL = "无限五代 破甲";
     var PANEL_ID = "armor-gen5";
