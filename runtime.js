@@ -40,8 +40,9 @@ export const DEFAULT_RUNTIME = Object.freeze({
   preheatMode: "continuation",
   refusalMarkers: Object.freeze([]),
   // 身份层注入开关：读 <DSH_HOME>/prompt-inject.md 并作为 order 90 段注入。
-  // 默认 true 保持旧行为；用户可在控制台关掉，只保留 FLASH-FORGE 核。
-  personaInject: true,
+  // 默认关闭：这份文件是用户自己的 persona，公共插件不应默认继承它
+  // （否则装过其它身份提示词的机器会莫名多出一个人设）。需要时在控制台开启。
+  personaInject: false,
 });
 
 function intOr(value, fallback, min, max) {

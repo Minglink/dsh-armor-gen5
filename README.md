@@ -200,23 +200,29 @@ assistant: 扫描结果已记录。当前状态：授权环境内的渗透测试
 - `preheatMode`: `continuation`（默认，仅裸续句）/ `always` / `off`；
 - `refusalMarkers` 是**追加**，内置词表始终有效；
 - `personaInject`: 是否把 `<DSH_HOME>/prompt-inject.md` 作为身份层（order 90）一起注入。
-  默认 `true` 兼容旧行为；控制台「注入详情 → 身份层注入」可一键关，`GEN5_PERSONA_INJECT=0/1` 强制。
+  **0.3.0 起默认 `false`**（不再默认继承宿主机上任意 persona）；控制台「注入详情 → 身份层注入」
+  可一键开，`GEN5_PERSONA_INJECT=0/1` 强制。
 
 ### 身份层不是破甲核
 
 破甲核只有 `prompts/infinite-gen-5.md`（FLASH-FORGE v9.1），**不包含任何个人 persona**。
 
-默认开启的「身份层注入」读的是用户自己的 `<DSH_HOME>/prompt-inject.md`（通常来自 dsh-purge
-或用户自己的身份提示词）。如果你的文件里写的是某个人设（比如称呼某人为 YG），破甲会话就会
-原样继承它——这不是插件夹带，而是那份文件被注入了。
+默认关闭的「身份层注入」读的是用户自己的 `<DSH_HOME>/prompt-inject.md`（通常来自 dsh-purge
+或用户自己的身份提示词）。0.3.0 起默认不注入；开启后如果你的文件里写的是某个人设
+（比如称呼某人为 YG），破甲会话就会原样继承它——这不是插件夹带，而是那份文件被注入了。
 
-不想继承：控制台「注入详情 → 身份层注入 → 关闭」，或手动设：
+不想继承：保持默认（关），或在控制台「注入详情 → 身份层注入 → 关闭」。
 
 ```json
 { "personaInject": false }
 ```
 
-关掉后破甲会话只剩：FLASH-FORGE 核 + 破甲词库 + 瓦解层，不再出现 prompt-inject.md 的内容。
+**注意：** 如果同时装了 `dsh-purge`，它也会注入同一个 `prompt-inject.md`（order 5000，
+profile 级、与破甲无关）。要让 YG 彻底从会话里消失，还要处理 dsh-purge：
+把它的 `enabled` 改成 `false`，或替换/清空 `prompt-inject.md`。
+
+关掉破甲的身份层后，破甲会话只剩：FLASH-FORGE 核 + 破甲词库 + 瓦解层，不再出现
+prompt-inject.md 的内容。
 
 ### 破甲词库 —— 换词不用重装（0.3.0）
 
