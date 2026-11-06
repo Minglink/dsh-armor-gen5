@@ -1141,14 +1141,12 @@ function armorScore(text, markers) {
 }
 
 function armorProjectionApply(state, value) {
-  const next = { ...state };
   // 事件形状与 gen-4 实测一致：{ type: "user/message" } / { type: "assistant/message", data: { message: { content } } }
+  // 宿主契约（session-projection）：无关事件必须返回**同一 state 引用**。
+  // 每次事件都 `{ ...state }` 会让 Object.is 门控失效 → 每个 tool/call、job/settled
+  // 都会重算视图并推一次变更。这里改成命中才造新对象，其余原样返回。
   if (value && value.type === "user/message") {
-    next.running = true;
-    next.verdict = null;
-    next.words = [];
-    next.partial = false;
-    return next;
+    return { ...state, running: true, verdict: null, words: [], partial: false };
   }
   if (value && value.type === "assistant/message") {
     const message = value && value.data && value.data.message;
@@ -1162,14 +1160,10 @@ function armorProjectionApply(state, value) {
           : partial
             ? "partial"
             : "pass";
-      next.running = false;
-      next.verdict = verdict;
-      next.words = [...refusal, ...fallback];
-      next.partial = partial;
+      return { ...state, running: false, verdict, words: [...refusal, ...fallback], partial };
     }
-    return next;
   }
-  return next;
+  return state;
 }
 
 // ---- W5 自我博弈再锚定（wave2 冠军：34.5% 残余救援）----
@@ -1418,13 +1412,22 @@ function activate(ctx, config) {
         projections.register({
           key: "armor",
           stateVersion: 1,
-          schema: { parse: (value) => value },
-          view: (state) => {
-            let w5Count = 0;
-            agents.forEach((s) => {
-              w5Count += s.w5Count;
-            });
-            return { ...state, w5Count, mode: "armor" };
+          // 宿主契约（@deepseek-ai/dsh-session-projection）：
+          //   · 状态 schema 字段名叫 `stateSchema`（`schema` 会被忽略，checkpoint/restore 时 `def.stateSchema.parse` 直接崩）；
+          //   · 「客户端可见」必须写在 `wire` 里（`wire.view` + `wire.viewSchema`）。
+          // 没有 `wire` 块的单元被当作 host-only：不进 snapshot、不推 onChanged，
+          // 客户端 useProjection("armor") 恒为 undefined → 面板三项回退初始值
+          // （当前状态「待运行」/ W5 0 / 本轮拒绝词「无」）。旧版宿主读顶层 `view`，现宿主只读 `definition.wire`。
+          stateSchema: { parse: (value) => value },
+          wire: {
+            viewSchema: { parse: (value) => value },
+            view: (state) => {
+              let w5Count = 0;
+              agents.forEach((s) => {
+                w5Count += s.w5Count;
+              });
+              return { ...state, w5Count, mode: "armor" };
+            },
           },
           init: () => ({ running: false, verdict: null, words: [], partial: false, mode: "armor" }),
           apply: armorProjectionApply,
