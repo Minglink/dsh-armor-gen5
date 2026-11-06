@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
     var DISSOLVE_PATH = "/gen5/dissolve";
     var ENGAGE_PATH = "/gen5/engage";
     var PACKS_PATH = "/gen5/packs";
+    var PERSONA_PATH = "/gen5/persona";
 
     function fetchJSON(path, opts, done) {
       try {
@@ -165,6 +166,15 @@ window.__ModuleLoader__.load({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
+      }, done);
+    }
+
+    // 身份层（prompt-inject.md）开关
+    function writePersona(enabled, done) {
+      requestJSON(PERSONA_PATH, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled: Boolean(enabled) })
       }, done);
     }
 
@@ -416,6 +426,12 @@ window.__ModuleLoader__.load({
       var scopeNotePair = react.useState("");
       var scopeNote = scopeNotePair[0];
       var setScopeNote = scopeNotePair[1];
+      var personaBusyPair = react.useState(false);
+      var personaBusy = personaBusyPair[0];
+      var setPersonaBusy = personaBusyPair[1];
+      var personaNotePair = react.useState("");
+      var personaNote = personaNotePair[0];
+      var setPersonaNote = personaNotePair[1];
 
       react.useEffect(function () {
         var alive = true;
@@ -527,8 +543,7 @@ window.__ModuleLoader__.load({
         });
       }
 
-      function importPack(file) {
-        if (!file || packBusy) return;
+      function importPack(file) {        if (!file || packBusy) return;
         var slot = importSlot;
         setPackBusy(true);
         var apply = function (text) {
@@ -547,6 +562,28 @@ window.__ModuleLoader__.load({
         reader.onload = function () { apply(String(reader.result || "")); };
         reader.onerror = function () { setPackBusy(false); setPackNote("读取文件失败"); };
         reader.readAsText(file, "utf-8");
+      }
+
+      // 身份层开关：prompt-inject.md 是用户自己的 persona，不是破甲核。
+      function togglePersona() {
+        if (personaBusy) return;
+        var next = !(scopeData && scopeData.personaInject);
+        setPersonaBusy(true);
+        writePersona(next, function (res) {
+          setPersonaBusy(false);
+          if (res && res.ok && res.data) {
+            setScopeData(res.data);
+            setPersonaNote(next ? "身份层注入已开启，下一轮生效" : "身份层注入已关闭，下一轮只保留破甲核");
+            setTimeout(function () { setPersonaNote(""); }, 4000);
+            readVerify(function (result) { if (result) setVerifyResult(result); });
+            return;
+          }
+          if (res && res.data && res.data.error === "env-override") {
+            setPersonaNote("已被环境变量 GEN5_PERSONA_INJECT 固定，无法在界面切换");
+            return;
+          }
+          setPersonaNote("切换失败：" + ((res && res.error) || (res && res.status) || "unknown"));
+        });
       }
 
       // 把后端的失败结果翻译成人话：最常见的其实是"宿主没重启，路由不存在"。
@@ -649,6 +686,8 @@ window.__ModuleLoader__.load({
                 ? "failed"
                 : "off";
       var global = scope === "global";
+      var personaOn = Boolean(scopeData && scopeData.personaInject);
+      var personaEnvFixed = Boolean(scopeData && scopeData.personaInjectEnv);
       var coreInfo = packs && packs.slots ? packs.slots.core : null;
       var coreLabel = coreInfo
         ? (coreInfo.active === "builtin" ? "内置" : coreInfo.active) + " · " + (coreInfo.bytes || 0) + "B"
@@ -855,6 +894,34 @@ window.__ModuleLoader__.load({
             react.createElement("span", { className: "gen5-label" }, "破甲核"),
             react.createElement("span", { className: "gen5-value" }, coreLabel)
           ),
+          react.createElement(
+            "div",
+            { className: "gen5-row" },
+            react.createElement("span", { className: "gen5-label" }, "身份层注入"),
+            react.createElement(
+              "span",
+              { className: "gen5-value", style: { display: "inline-flex", alignItems: "center", gap: "6px" } },
+              personaOn ? "开 · prompt-inject.md" : "关 · 只用破甲核",
+              react.createElement(
+                "button",
+                {
+                  className: "gen5-miniBtn",
+                  disabled: personaBusy || personaEnvFixed || scopeData === null,
+                  onClick: togglePersona
+                },
+                personaBusy ? "…" : personaOn ? "关闭" : "开启"
+              )
+            )
+          ),
+          react.createElement(
+            "div",
+            { className: "gen5-note" },
+            "身份层来自 " + (scopeData && scopeData.personaInjectFile ? scopeData.personaInjectFile : "~/.dsh/prompt-inject.md") +
+              "；它不是破甲核，关掉后只保留 FLASH-FORGE 核与词库。"
+          ),
+          personaNote
+            ? react.createElement("div", { className: "gen5-note gen5-noteWarn" }, personaNote)
+            : null,
           react.createElement(
             "div",
             { className: "gen5-note" },

@@ -39,6 +39,9 @@ export const DEFAULT_RUNTIME = Object.freeze({
   normalize: true,
   preheatMode: "continuation",
   refusalMarkers: Object.freeze([]),
+  // 身份层注入开关：读 <DSH_HOME>/prompt-inject.md 并作为 order 90 段注入。
+  // 默认 true 保持旧行为；用户可在控制台关掉，只保留 FLASH-FORGE 核。
+  personaInject: true,
 });
 
 function intOr(value, fallback, min, max) {
@@ -73,6 +76,7 @@ export function normalizeRuntime(raw) {
     normalize: boolOr(src.normalize, DEFAULT_RUNTIME.normalize),
     preheatMode: PREHEAT_MODES.includes(src.preheatMode) ? src.preheatMode : DEFAULT_RUNTIME.preheatMode,
     refusalMarkers: stringList(src.refusalMarkers, []),
+    personaInject: boolOr(src.personaInject, DEFAULT_RUNTIME.personaInject),
   };
 }
 

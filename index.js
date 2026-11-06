@@ -47,16 +47,31 @@ const PKG_VERSION = (() => {
 const VARIANT = (process.env.GEN5_VARIANT || "main").replace(/[^\w.-]/g, "");
 
 // ---- prompt-inject.md 身份层注入 ----
-// armor 预设激活时读取 ~/.dsh/prompt-inject.md 并注入系统提示，
-// 让身份层与破甲核同源生效。GEN5_PERSONA_INJECT=0 可关闭。
-const PERSONA_INJECT = process.env.GEN5_PERSONA_INJECT !== "0";
+// armor 预设激活时读取 ~/.dsh/prompt-inject.md 并注入系统提示。
+// 注意：这个文件是**用户自己的身份层**（可能是任何 persona），不是破甲核的一部分；
+// 默认开启只是为了兼容旧行为，控制台可关。GEN5_PERSONA_INJECT=0 强制关闭、=1 强制开启。
+const PERSONA_ENV = process.env.GEN5_PERSONA_INJECT;
 const PERSONA_FILE = join(process.env.DSH_HOME || join(homedir(), ".dsh"), "prompt-inject.md");
 
+function personaInjectEnabled() {
+  if (PERSONA_ENV === "0") return false;
+  if (PERSONA_ENV === "1") return true;
+  // 热配置优先；默认 true（旧行为）。
+  return readRuntime().config.personaInject !== false;
+}
+
+// 身份层正文按 mtime 缓存：section text 是函数，宿主每轮都会调用。
+let personaCache = { mtimeMs: -1, size: -1, text: "" };
+
 function loadPersonaText() {
-  if (!PERSONA_INJECT) return "";
+  if (!personaInjectEnabled()) return "";
   try {
-    if (!existsSync(PERSONA_FILE)) return "";
-    return readFileSync(PERSONA_FILE, "utf8");
+    const st = statSync(PERSONA_FILE);
+    if (!st.isFile()) return "";
+    if (personaCache.mtimeMs === st.mtimeMs && personaCache.size === st.size) return personaCache.text;
+    const text = readFileSync(PERSONA_FILE, "utf8");
+    personaCache = { mtimeMs: st.mtimeMs, size: st.size, text };
+    return text;
   } catch {
     return "";
   }
@@ -237,7 +252,7 @@ function healSharedState(ctx, own) {
     }, own);
     out.reRegistered += 1;
   }
-  if (PERSONA_INJECT && missing("infinite-gen-5:persona-inject")) {
+  if (personaInjectEnabled() && missing("infinite-gen-5:persona-inject")) {
     const personaText = loadPersonaText();
     if (personaText) {
       registerOnceSection(ctx, {
@@ -561,7 +576,8 @@ function computeVerify(tableCtx) {
     PACK_SLOTS.map((slot) => slot + "=" + packs[slot].active).join(" · "));
   add("variant", VARIANT.length > 0, VARIANT);
   add("normalize-enabled", true, NORMALIZE_ON ? "on" : "off");
-  add("persona-inject", true, PERSONA_INJECT ? "on" : "off");
+  add("persona-inject", true,
+    (personaInjectEnabled() ? "on" : "off") + (existsSync(PERSONA_FILE) ? " · file present" : " · no file"));
   add("w5-reanchor", rt.config.w5.pool.length > 0,
     "pool " + rt.config.w5.pool.length + " · " + rt.config.w5.maxPerWindow + "/" + rt.config.w5.windowTurns + " turns");
   add("runtime-config", rt.error === "", rt.fromFile ? "hot file" : "defaults" + (rt.error ? " (" + rt.error + ")" : ""));
@@ -775,6 +791,31 @@ function writeScopeFile(scope) {
   }
 }
 
+// 热配置单字段写回（控制台开关用）：保留其余手写字段，只改指定 key。
+function writeRuntimeSetting(key, value) {
+  try {
+    let current = {};
+    try {
+      const parsed = JSON.parse(readFileSync(SCOPE_FILE, "utf8"));
+      if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) current = parsed;
+    } catch {
+      current = {};
+    }
+    const next = {
+      ...current,
+      [key]: value,
+      updatedAt: new Date().toISOString(),
+      by: "console",
+    };
+    writeFileSync(SCOPE_FILE, JSON.stringify(next, null, 2) + "\n");
+    runtimeReader.reset();
+    return true;
+  } catch (error) {
+    console.error("[dsh-armor-gen5] 写入运行期配置失败:", error);
+    return false;
+  }
+}
+
 // ---- 注入状态记账（0.3.0）----
 // 控制台页注册在 main slot（root scope），宿主不会给它 useProjection，
 // 所以「注入是否已启动」不能从会话投影读，只能由后端记账、走 /gen5/scope 返回。
@@ -868,7 +909,9 @@ function registerScopeRoute(ctx, config) {
         version: PKG_VERSION,
         implementationRevision: IMPLEMENTATION_REVISION,
         promptSetHash: promptSetHash(),
-        personaInject: PERSONA_INJECT,
+        personaInject: personaInjectEnabled(),
+        personaInjectFile: PERSONA_FILE,
+        personaInjectEnv: PERSONA_ENV || null,
         normalizeOn: NORMALIZE_ON,
         // 诊断：预设是否真的把插件挂了第二份实例（1 = 只有 bundle 实例）。
         instances: { total: armorInstances, preset: armorPresetInstances },
@@ -1060,6 +1103,42 @@ function registerScopeRoute(ctx, config) {
     });
   };
 
+  // ---- /gen5/persona：身份层注入开关（读 <DSH_HOME>/prompt-inject.md）----
+  const personaHandler = (req, res) => {
+    if (req.method === "GET") {
+      send(res, 200, state());
+      return;
+    }
+    if (req.method !== "POST") {
+      send(res, 405, { ok: false, error: "method" });
+      return;
+    }
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 4096) req.destroy();
+    });
+    req.on("end", () => {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(body || "{}");
+      } catch {
+        send(res, 400, { ok: false, error: "json" });
+        return;
+      }
+      if (parsed === null || typeof parsed !== "object" || typeof parsed.enabled !== "boolean") {
+        send(res, 400, { ok: false, error: "enabled" });
+        return;
+      }
+      if (PERSONA_ENV === "0" || PERSONA_ENV === "1") {
+        send(res, 409, state({ ok: false, error: "env-override" }));
+        return;
+      }
+      const ok = writeRuntimeSetting("personaInject", parsed.enabled);
+      send(res, ok ? 200 : 500, state({ ok }));
+    });
+  };
+
   // ---- /gen5/packs：破甲词库列表 / 切换 / 导入 / 删除 / 恢复内置 ----
   const packsHandler = (req, res) => {
     if (req.method === "GET") {
@@ -1150,6 +1229,7 @@ function registerScopeRoute(ctx, config) {
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/dissolve", handler: dissolveHandler }), "infinite-gen-5: dissolve route");
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/engage", handler: engageHandler }), "infinite-gen-5: engage route");
     ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/packs", handler: packsHandler }), "infinite-gen-5: packs route");
+    ctx.effect(() => webServer.register({ kind: "exact", path: "/gen5/persona", handler: personaHandler }), "infinite-gen-5: persona route");
   } catch (error) {
     console.error("[dsh-armor-gen5] scope 路由注册失败:", error);
     scopeRouteRegistered = false;
@@ -1516,15 +1596,13 @@ function activate(ctx, config) {
   }
 
   // 破甲实例：此处即启用完整框架。
-  // prompt-inject.md（身份层）先注入，随后破甲核（v9.1）注入。
-  const personaText = loadPersonaText();
-  if (personaText) {
-    registerOnceSection(ctx, {
-      name: "infinite-gen-5:persona-inject",
-      order: 90,
-      text: personaText,
-    }, own);
-  }
+  // 身份层（prompt-inject.md）用函数注册：默认开启，控制台关掉后下一轮即空段，
+  // 不需要重新注册 section。注意它属于用户自己的 persona，不是破甲核。
+  registerOnceSection(ctx, {
+    name: "infinite-gen-5:persona-inject",
+    order: 90,
+    text: () => loadPersonaText(),
+  }, own);
   registerOnceSection(ctx, {
     name: "infinite-gen-5:global-system-prompt",
     order: 100,

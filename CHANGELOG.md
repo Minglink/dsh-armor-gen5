@@ -7,8 +7,9 @@
 | 1 | **两个注入按钮都点了，控制台仍显示「待运行」** | 启动流程六步全绿、横幅「已启动」，但标题右侧徽标和状态行一直「待运行」，像没生效 | 控制台页注册在 `main` slot，宿主契约是 `scope: "root"`、标准 props **不含 `useProjection`**（`client-ui-layout` 直接 `renderSlot("main", {}, …)`）。旧代码却用 `useProjection("armor")` 判状态 → 永远 `undefined` → 永远「待运行」。与投影本身是否工作无关 | 控制台不再读会话投影：后端 `/gen5/engage` 成功后写 `lastEngage` 记账（内存 + 热配置文件），`/gen5/scope` 返回 `armed / sections / engagedAt / engagedOk`，界面据此显示「已注入 / 已启用·待会话 / 未启动 / 启动失败」。逐轮判定留在输入框徽标（session scope） |
 | 2 | **会话投影在 DSH 0.2.2 起注册成功但客户端不可见** | 输入框徽标只有名字，没有「思考中/通过/拒绝/未完交付」四态 | 投影契约改为 `stateSchema + wire{viewSchema,view}`；旧 `schema/view` 写法注册不报错，但 `erased.wire === undefined` → `snapshot()` 跳过该 key，`useProjection("armor")` 拿不到值 | 注册同时提供新契约（`stateSchema` / `wire`）与旧字段（`schema` / `view`），兼容 ≤0.2.1 宿主；`register()` 的 thenable 失败也会被记录 |
 | 3 | **破甲词不能自由替换** | 想换破甲核只能改安装目录，升级即覆盖；预设内核与 bundle 是两份副本，改一处不生效 | 破甲文本是模块级常量，且散落在 `prompts/*.md` 两个副本 | 新增 `prompt-pack.js`：`<DSH_HOME>/armor-gen5/packs/*.md` 三槽位词库（破甲核/身份前缀/封口段），`packs.json` 记录选择；section `text` 改为函数，宿主每轮 `assemble()` 重新求值 → **下一轮生效，不重启**。控制台新增「破甲词库」：切换 / 导入 .md / 删除（自动备份）/ 恢复内置 |
+| 4 | **身份层被误认为破甲核的一部分** | 破甲会话里出现用户自己的 persona（例如称呼「YG」/Little Code Sauce），看起来像破甲核夹带私货 | `loadPersonaText()` 默认读取并注入 `<DSH_HOME>/prompt-inject.md`（order 90）。这份文件是**用户自己的身份层**，插件不携带；默认开启只是兼容旧行为 | 控制台新增「身份层注入」开关；`personaInject` 进入热配置；section `text` 改函数，开关下一轮生效；`GEN5_PERSONA_INJECT=0/1` 仍可强制 |
 
-新增 HTTP：`GET/POST /gen5/packs`（select / import / remove / reset）。
+新增 HTTP：`GET/POST /gen5/packs`（select / import / remove / reset）、`POST /gen5/persona`（enabled）。
 新增校验：路径穿越、96KB 上限、NUL、空文件、写坏回落内置，全部在 `tools/test-packs.mjs` 有对应用例（10 项）。
 
 ## 0.2.3 — 2026-11-06（W5/T4 死代码 + scope 切换交接丢失）

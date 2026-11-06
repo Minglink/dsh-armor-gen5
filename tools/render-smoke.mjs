@@ -144,6 +144,8 @@ slotValues = [
     envOverride: null,
   },
   "",
+  false,
+  "",
   { available: true, hostSections: [{}], constrained: [], covered: [] },
   "0.3.0",
   { phase: "idle", steps: [], verdict: null, scope: null, ms: 0 },
@@ -169,6 +171,8 @@ assert.match(pageHtml, /无限五代 破甲/);
 assert.match(pageHtml, /已注入/, "面板应显示已注入而不是待运行");
 assert.match(pageHtml, /破甲词库/);
 assert.match(pageHtml, /破甲核/);
+assert.match(pageHtml, /身份层注入/, "面板应显示身份层开关");
+assert.match(pageHtml, /关闭/, "身份层开启时应提供关闭按钮");
 assert.match(pageHtml, /mine/, "用户词库应出现在下拉框");
 assert.doesNotMatch(pageHtml, /待运行/, "修复后 root 面板不应再出现「待运行」");
 
