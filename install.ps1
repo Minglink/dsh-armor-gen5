@@ -34,6 +34,9 @@ if (-not (Test-Path $dshHome)) {
     exit 1
 }
 Write-Host "[1] DSH home: $dshHome"
+$packHome = Join-Path $dshHome 'armor-gen5\packs'
+New-Item -ItemType Directory -Path $packHome -Force | Out-Null
+Write-Host "[1.1] 破甲词库目录: $packHome（升级/卸载均保留）"
 
 # ---- 2. 复制插件（先移开旧安装：重复安装时 Copy-Item -Recurse 会把 tools/ 套成 tools/tools/）----
 $pluginsDir = Join-Path $dshHome "plugins"

@@ -200,6 +200,7 @@ ctx.systemPrompt.section({
 
 ```powershell
 node tools/test-packs.mjs     # 10 项：默认/导入/切换/热更新/坏文件/穿越/上限/删除
+node tools/render-smoke.mjs   # 控制台离线渲染：注入状态=已注入 + 词库区块
 node tools/selftest.mjs       # 机制 14 项
 node --check index.js; node --check client.js; node --check prompt-pack.js
 ```
