@@ -482,7 +482,8 @@ window.__ModuleLoader__.load({
       react.useEffect(function () {
         var alive = true;
         readPacks(function (data) {
-          if (alive && data) setPacks(data);
+          // 路由不存在（宿主仍是旧版）时不要永远停在「读取中…」。
+          if (alive) setPacks(data || { unavailable: true, slots: {}, packs: [], packsDir: "" });
         });
         return function () { alive = false; };
       }, []);
@@ -913,8 +914,15 @@ window.__ModuleLoader__.load({
                 react.createElement(
                   "div",
                   { className: "gen5-note" },
-                  "词库目录：" + (packs.packsDir || "") + "（改完下一轮生效；切换失败会自动回落内置）"
+                  "词库目录：" + (packs.packsDir || "（未就绪）") + "（改完下一轮生效；切换失败会自动回落内置）"
                 ),
+                packs.unavailable
+                  ? react.createElement(
+                      "div",
+                      { className: "gen5-note gen5-noteFail" },
+                      "词库接口不可用：后端仍是旧版或路由未注册。重启 DeepSeek Harness 后再试。"
+                    )
+                  : null,
                 packNote
                   ? react.createElement("div", { className: "gen5-note gen5-noteWarn" }, packNote)
                   : null
