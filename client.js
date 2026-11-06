@@ -296,7 +296,7 @@ window.__ModuleLoader__.load({
         );
       });
       if (info.active !== "builtin" && !known) {
-        options.push(react.createElement("option", { key: "__missing", value: info.active }, info.active + "（文件缺失）"));
+        options.push(react.createElement("option", { key: "__missing", value: info.active }, info.active + "（不可用，已回落内置）"));
       }
       var meta =
         (info.source === "user" ? "用户词库" : "内置") + " · " + (info.bytes || 0) + " B · " + String(info.hash || "").slice(0, 12);
