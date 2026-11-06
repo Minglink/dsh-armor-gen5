@@ -1,8 +1,8 @@
 # HANDOFF — dsh-armor-gen5「无限五代 破甲」交接说明
 
 > 给接手继续研究的人：这份文件回答「它是什么 / 怎么跑 / 怎么改 / 怎么验 / 哪里会翻车」。
-> 版本 **0.2.0**（自动瓦解引擎 + 启动流程可视化），服务端实现修订号
-> `20261105-gen5-forge-v915-auto`。
+> 版本 **0.3.0**（破甲词库 + 注入状态修复），服务端实现修订号
+> `20261107-gen5-prompt-pack`。
 > 产品文档见 `README.md`，变更记录见 `CHANGELOG.md`，Harness 对接细节见 `HARNESS_PLUGIN.md`。
 
 ---
@@ -12,24 +12,25 @@
 | 项 | 值 |
 |---|---|
 | npm 包名 / 插件 id | `dsh-armor-gen5` |
-| 显示名 | 左侧边栏「无限五代」；徽标「● 无限五代 破甲 v0.2.0」 |
+| 显示名 | 左侧边栏「无限五代」；徽标「● 无限五代 破甲 v0.3.0」 |
 | 形态 | DeepSeek Harness 插件（服务端 `index.js` + 客户端 `client.js`） |
 | 作用域 | 注册 agent preset `armor`（「破甲模式」）；只有选中它的会话注入，未选中零注入 |
-| 注入内容 | `prompts/infinite-gen-5.md`（FLASH-FORGE v9.1）+ 可选 `~/.dsh/prompt-inject.md` |
+| 注入内容 | `prompts/infinite-gen-5.md`（FLASH-FORGE v9.1）；可被 `<DSH_HOME>/armor-gen5/packs/*.md` 替换 |
 | 瓦解层 | **自动引擎**：枚举宿主 global 层 → 词根识别约束段 → 就地清空覆盖（不可读时降级追加压制） |
-| 运行期机制 | W5 再锚定、T4 预热、输入归一化、会话投影 `armor` |
-| UI | 徽标（点击切 scope）+ 控制台：两个注入入口、六步流程时间线、自检结果 |
+| 运行期机制 | W5 再锚定、T4 预热、输入归一化、会话投影 `armor`、破甲词库（三槽位热切换） |
+| UI | 徽标（点击切 scope）+ 控制台：两个注入入口、六步流程时间线、注入详情、破甲词库、自检结果 |
 | 工具 | `gen5_verify`、`infinite_gen5_profile` |
-| HTTP | `/gen5/scope`、`/gen5/verify`、`/gen5/dissolve`、`/gen5/engage` |
+| HTTP | `/gen5/scope`、`/gen5/verify`、`/gen5/dissolve`、`/gen5/engage`、`/gen5/packs` |
 
 ---
 
 ## 1. 目录清单
 
 ```
-dsh-armor-gen5-0.4.0/        ← 目录名沿用历史路径，包版本以 package.json 为准（当前 0.2.0）
+dsh-armor-gen5-0.4.0/        ← 目录名沿用历史路径，包版本以 package.json 为准（当前 0.3.0）
 ├─ index.js                 服务端半体（瓦解层 + 注入链 + 预设 + 投影 + 工具 + HTTP 路由）
-├─ client.js                客户端半体（徽标 + 控制台面板 + scope 轮询）
+├─ client.js                客户端半体（徽标 + 控制台面板 + scope 轮询 + 破甲词库）
+├─ prompt-pack.js           破甲词库（三槽位读写 / mtime 缓存 / 导入切换删除）
 ├─ preset-rows.js           预设行表（armor-gen5 行：mode=armor, via=preset）
 ├─ normalize.js             输入归一化（实名/URL/编号 → 占位符）
 ├─ preheat.js               冷启动预热（首句门控 + T4 证据链堆叠消息）

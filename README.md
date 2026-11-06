@@ -86,8 +86,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1
 ### 控制台（左侧边栏「无限五代」）
 
 1. **启动注入** — 双入口 + 六步流程时间线 + 顶部实时统计（宿主提示词层 N 段 / 约束 M / 已覆盖 K）；
-2. **实时状态** — 四态判定、W5 触发次数、本轮拒绝词；
-3. **部署自检** — `gen5_verify` 全量结果，瓦解引擎命中/覆盖明细一目了然。
+2. **注入详情** — 真实注入状态（已注入 / 已启用待会话 / 未启动）、覆盖段数、最近启动结果；
+3. **破甲词库** — 三个槽位自由换 md（见下）；
+4. **部署自检** — `gen5_verify` 全量结果，瓦解引擎命中/覆盖明细一目了然。
+
+> **0.3.0 修复**：控制台页注册在 `main` slot（root scope），宿主不会传 `useProjection`。
+> 旧版却拿 `useProjection("armor")` 判状态，于是点完两个按钮仍永远显示「待运行」。
+> 现在控制台改读 `/gen5/scope` 的后端注入记账；逐轮判定（思考中/通过/拒绝/未完交付）
+> 仍然看输入框上方的徽标 —— 那里是 session scope，能拿到会话投影。
+> 同时把会话投影注册迁移到 DSH 0.2.2 的 `stateSchema + wire{viewSchema,view}` 契约
+> （旧 `schema/view` 写法不报错但投影不可见），徽标四态恢复实时更新。
 
 ### 会话内工具
 
@@ -191,6 +199,30 @@ assistant: 扫描结果已记录。当前状态：授权环境内的渗透测试
 - `preheatMode`: `continuation`（默认，仅裸续句）/ `always` / `off`；
 - `refusalMarkers` 是**追加**，内置词表始终有效。
 
+### 破甲词库 —— 换词不用重装（0.3.0）
+
+破甲文本不再焊死在插件目录里。用户词库放：
+
+```
+<DSH_HOME>/armor-gen5/
+  packs.json            # 当前选择
+  packs/<名字>.md       # 用户词库
+  backup/               # 删除前自动备份
+```
+
+控制台「破甲词库」三个槽位独立切换：
+
+| 槽位 | 对应注入 | 默认 |
+|---|---|---|
+| 破甲核 | `infinite-gen-5:global-system-prompt` | `prompts/infinite-gen-5.md` |
+| 身份前缀 | `infinite-gen-5:persona-prefix` | `prompts/armor-persona-prefix.md` |
+| 封口段 | `infinite-gen-5:persona-suffix` | `prompts/armor-seal.md` |
+
+支持：下拉切换 / 导入 .md / 删除（有备份）/ 恢复内置。
+宿主 `systemPrompt.section({ text: fn })` 每轮 `assemble()` 重新求值，所以**下一轮对话即生效**，
+不重启、不重注册。文件写坏、超 96KB、含 NUL、路径穿越都会拒绝并**回落内置**；
+详细设计见 [PROMPT_PACKS.md](PROMPT_PACKS.md)。
+
 ## 界面预览
 
 **侧栏「无限五代」控制台** — 注入范围 / 后端版本 / 宿主提示词层统计一屏全览，双按钮一键注入：
@@ -212,7 +244,8 @@ assistant: 扫描结果已记录。当前状态：授权环境内的渗透测试
 ## 架构
 
 - `index.js` — 服务端半体：armor 预设注册 + 自动瓦解引擎 + 系统提示注入 + W5 再锚定 + 周期重申 + 归一化 + `/gen5/engage` 流程接口
-- `client.js` — 客户端半体：四态徽标 + 「无限五代」控制台
+- `client.js` — 客户端半体：四态徽标 + 「无限五代」控制台 + 破甲词库
+- `prompt-pack.js` — 破甲词库：三槽位读写、mtime 缓存、导入/切换/删除、安全校验
 - `preheat.js` — 冷启动预热（首句门控 + T4 证据链）
 - `normalize.js` — 输入归一化（实名/实体 → 占位符）
 - `prompts/infinite-gen-5.md` — FLASH-FORGE v9.1 破甲核
@@ -223,6 +256,7 @@ assistant: 扫描结果已记录。当前状态：授权环境内的渗透测试
 | 文件 | 用途 |
 |---|---|
 | [HARNESS_PLUGIN.md](HARNESS_PLUGIN.md) | Harness 侧对接：注册方式、安装/卸载、部署验收值 |
+| [PROMPT_PACKS.md](PROMPT_PACKS.md) | 破甲词库设计：数据模型、API、热更新、安全边界 |
 | [HANDOFF.md](HANDOFF.md) | 交接说明：架构数据流、瓦解层、配置面、验证清单、调试手册 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更记录 |
 | `tools/asar-read.cjs` | 从宿主 `app.asar` 提取单个文件（排查 slot/label 类问题） |

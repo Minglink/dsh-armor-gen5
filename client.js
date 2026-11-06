@@ -29,7 +29,7 @@ window.__ModuleLoader__.load({
     var ANIM_CSS =
       "@keyframes dshArmorPulse{0%,100%{box-shadow:0 0 2px rgba(34,197,94,.5);opacity:1}50%{box-shadow:0 0 12px rgba(34,197,94,1);opacity:.55}}@keyframes dshArmorFlash{0%{transform:scale(1)}30%{transform:scale(1.12)}100%{transform:scale(1)}}";
 
-    var PLUGIN_VERSION = "0.2.3";
+    var PLUGIN_VERSION = "0.3.0";
     var BADGE_TEXT = "无限五代 破甲 v" + PLUGIN_VERSION;
     var BADGE_LABEL = "无限五代 破甲";
     var PANEL_ID = "armor-gen5";
@@ -65,6 +65,7 @@ window.__ModuleLoader__.load({
     var VERIFY_PATH = "/gen5/verify";
     var DISSOLVE_PATH = "/gen5/dissolve";
     var ENGAGE_PATH = "/gen5/engage";
+    var PACKS_PATH = "/gen5/packs";
 
     function fetchJSON(path, opts, done) {
       try {
@@ -154,6 +155,19 @@ window.__ModuleLoader__.load({
       }, done);
     }
 
+    // ---- 破甲词库 ----
+    function readPacks(done) {
+      fetchJSON(PACKS_PATH, { method: "GET" }, done);
+    }
+
+    function writePacks(payload, done) {
+      requestJSON(PACKS_PATH, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }, done);
+    }
+
     // ============ Armor Console Page ============
     // Rich control console displayed when the armor panel is selected.
 
@@ -211,7 +225,22 @@ window.__ModuleLoader__.load({
     ".gen5-scopeTipKey{font-weight:600;flex:0 0 auto}"+
     ".gen5-scopeTipText{opacity:0.68;flex:1 1 auto}"+
     ".gen5-scopeTipTag{margin-left:auto;flex:0 0 auto;font-size:10px;padding:1px 7px;border-radius:999px;background:rgba(34,197,94,0.14);color:#22c55e;letter-spacing:0.02em}"+
-    ".gen5-fineprint{font-size:11px;opacity:0.45;margin-top:7px;line-height:1.6}";
+    ".gen5-fineprint{font-size:11px;opacity:0.45;margin-top:7px;line-height:1.6}"+
+    ".gen5-select{-webkit-appearance:none;appearance:none;background:rgba(128,128,128,0.12);color:inherit;border:1px solid rgba(128,128,128,0.3);border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:inherit;max-width:150px}"+
+    ".gen5-miniBtn{-webkit-appearance:none;appearance:none;background:transparent;color:inherit;border:1px solid rgba(128,128,128,0.3);border-radius:6px;padding:3px 8px;font-size:11px;font-family:inherit;cursor:pointer;opacity:0.75}"+
+    ".gen5-miniBtn:hover{opacity:1}"+
+    ".gen5-miniBtn:disabled{opacity:0.35;cursor:wait}"+
+    ".gen5-packRow{display:flex;align-items:center;gap:8px;padding:6px 0}"+
+    ".gen5-packRow+.gen5-packRow{border-top:1px solid rgba(128,128,128,0.12)}"+
+    ".gen5-packMain{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}"+
+    ".gen5-packName{font-weight:500;font-size:12.5px}"+
+    ".gen5-packMeta{font-size:10.5px;opacity:0.5;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"+
+    ".gen5-packSide{display:flex;align-items:center;gap:6px;flex:0 0 auto}"+
+    ".gen5-importRow{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(128,128,128,0.12);flex-wrap:wrap}"+
+    ".gen5-file{font-size:11px;max-width:100%}"+
+    ".gen5-note{font-size:11px;opacity:0.6;margin-top:8px;line-height:1.5}"+
+    ".gen5-noteWarn{color:#eab308;opacity:0.9}"+
+    ".gen5-noteFail{color:#ef4444;opacity:0.9}";
 
     var styleInjected = false;
 
@@ -228,13 +257,96 @@ window.__ModuleLoader__.load({
       styleInjected = true;
     }
 
-    function VerdictBadge(props) {
-      var verdict = props.verdict;
-      if (!verdict) return react.createElement("span", { className: "gen5-badge gen5-badgeNeutral" }, "待运行");
-      if (verdict === "pass") return react.createElement("span", { className: "gen5-badge gen5-verdictPass" }, "✓ 通过");
-      if (verdict === "partial") return react.createElement("span", { className: "gen5-badge gen5-verdictPartial" }, "◐ 未完交付");
-      if (verdict === "fallback" || verdict === "refusal") return react.createElement("span", { className: "gen5-badge gen5-verdictRefusal" }, "✗ 拒绝");
-      return react.createElement("span", { className: "gen5-badge gen5-badgeNeutral" }, verdict);
+    // 控制台页在 main slot（root scope）：宿主不会传 useProjection，
+    // 所以这里只显示「注入状态」（后端记账），逐轮判定留给输入框徽标。
+    function StatusBadge(props) {
+      var status = props.status;
+      if (status === "armed") return react.createElement("span", { className: "gen5-badge gen5-badgePass" }, "✓ 已注入");
+      if (status === "pending") return react.createElement("span", { className: "gen5-badge gen5-badgeWarn" }, "◐ 已启用 · 待会话");
+      if (status === "failed") return react.createElement("span", { className: "gen5-badge gen5-badgeFail" }, "✗ 启动失败");
+      if (status === "unknown") return react.createElement("span", { className: "gen5-badge gen5-badgeNeutral" }, "连接中…");
+      return react.createElement("span", { className: "gen5-badge gen5-badgeNeutral" }, "未启动");
+    }
+
+    var SLOT_LABELS = { core: "破甲核", persona: "身份前缀", seal: "封口段" };
+
+    function pad2(n) { return n < 10 ? "0" + n : String(n); }
+
+    function fmtTime(value) {
+      if (!value) return "—";
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()) +
+        " " + pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+    }
+
+    function PackRow(props) {
+      var slot = props.slot;
+      var info = props.info;
+      if (!info) return null;
+      var list = props.packs || [];
+      var options = [
+        react.createElement("option", { key: "builtin", value: "builtin" }, "内置 · " + (info.builtinFile || "内置"))
+      ];
+      var known = false;
+      list.forEach(function (pack) {
+        if (pack.id === info.active) known = true;
+        options.push(
+          react.createElement("option", { key: pack.id, value: pack.id }, "用户 · " + pack.id + "（" + pack.bytes + "B）")
+        );
+      });
+      if (info.active !== "builtin" && !known) {
+        options.push(react.createElement("option", { key: "__missing", value: info.active }, info.active + "（文件缺失）"));
+      }
+      var meta =
+        (info.source === "user" ? "用户词库" : "内置") + " · " + (info.bytes || 0) + " B · " + String(info.hash || "").slice(0, 12);
+      return react.createElement(
+        "div",
+        { className: "gen5-packRow" },
+        react.createElement(
+          "div",
+          { className: "gen5-packMain" },
+          react.createElement("span", { className: "gen5-packName" }, SLOT_LABELS[slot] || slot),
+          react.createElement("span", { className: "gen5-packMeta" }, meta + (info.error ? " · " + info.error : ""))
+        ),
+        react.createElement(
+          "div",
+          { className: "gen5-packSide" },
+          react.createElement(
+            "select",
+            {
+              className: "gen5-select",
+              value: info.active,
+              disabled: props.busy,
+              title: "切换后下一轮对话生效",
+              onChange: function (event) { props.onSelect(slot, event.target.value); }
+            },
+            options
+          ),
+          info.source === "user"
+            ? react.createElement(
+                "button",
+                {
+                  className: "gen5-miniBtn",
+                  disabled: props.busy,
+                  onClick: function () { props.onReset(slot); }
+                },
+                "恢复内置"
+              )
+            : null,
+          info.source === "user"
+            ? react.createElement(
+                "button",
+                {
+                  className: "gen5-miniBtn",
+                  disabled: props.busy,
+                  onClick: function () { props.onRemove(info.active); }
+                },
+                "删除"
+              )
+            : null
+        )
+      );
     }
 
     // 注入流程时间线：每步一个圆点 + 名称 + 真实耗时/结果
@@ -289,20 +401,18 @@ window.__ModuleLoader__.load({
 
     function ArmorConsolePage(props) {
       ensureStyle();
-      var useProjection = props.useProjection;
-      var armor = typeof useProjection === "function" ? useProjection("armor") : undefined;
 
       var statePair = react.useState({ loading: false, result: null });
       var verifyResult = statePair[0];
       var setVerifyResult = statePair[1];
 
-      // ---- 破甲启动控制：scope 状态轮询 + 切换 ----
+      // ---- 注入状态：轮询 /gen5/scope ----
+      // 注意：main slot 是 root scope，宿主不会给这个页面 useProjection，
+      // 所以这里读不了会话投影；「已注入/未注入」只能由后端记账后从 HTTP 取。
       var scopePair = react.useState(null);
-      var scope = scopePair[0];
-      var setScope = scopePair[1];
-      var scopeBusyPair = react.useState(false);
-      var scopeBusy = scopeBusyPair[0];
-      var setScopeBusy = scopeBusyPair[1];
+      var scopeData = scopePair[0];
+      var setScopeData = scopePair[1];
+      var scope = scopeData && typeof scopeData.scope === "string" ? scopeData.scope : null;
       var scopeNotePair = react.useState("");
       var scopeNote = scopeNotePair[0];
       var setScopeNote = scopeNotePair[1];
@@ -311,7 +421,7 @@ window.__ModuleLoader__.load({
         var alive = true;
         var apply = function (data) {
           if (!alive || !data) return;
-          if (typeof data.scope === "string") setScope(data.scope);
+          setScopeData(data);
           if (typeof data.version === "string") setHostVersion(data.version);
           if (data.envOverride) setScopeNote("范围已被环境变量 GEN5_SCOPE 固定：" + data.envOverride);
         };
@@ -355,6 +465,89 @@ window.__ModuleLoader__.load({
         };
       }, []);
 
+      // ---- 破甲词库：列表 + 切换 / 导入 / 删除 / 恢复 ----
+      var packsPair = react.useState(null);
+      var packs = packsPair[0];
+      var setPacks = packsPair[1];
+      var packBusyPair = react.useState(false);
+      var packBusy = packBusyPair[0];
+      var setPackBusy = packBusyPair[1];
+      var packNotePair = react.useState("");
+      var packNote = packNotePair[0];
+      var setPackNote = packNotePair[1];
+      var importSlotPair = react.useState("core");
+      var importSlot = importSlotPair[0];
+      var setImportSlot = importSlotPair[1];
+
+      react.useEffect(function () {
+        var alive = true;
+        readPacks(function (data) {
+          if (alive && data) setPacks(data);
+        });
+        return function () { alive = false; };
+      }, []);
+
+      function finishPack(res, okText) {
+        setPackBusy(false);
+        if (!res || !res.ok || !res.data) {
+          var status = (res && res.status) || 0;
+          var detail = status ? "HTTP " + status + "：" + ((res && res.error) || "unknown") : (res && res.error) || "请求失败";
+          setPackNote("操作失败：" + detail);
+          setTimeout(function () { setPackNote(""); }, 5000);
+          return;
+        }
+        setPacks(res.data);
+        setPackNote(okText || "已更新，下一轮对话生效");
+        setTimeout(function () { setPackNote(""); }, 4000);
+        readVerify(function (result) { if (result) setVerifyResult(result); });
+      }
+
+      function selectPack(slot, id) {
+        if (packBusy) return;
+        setPackBusy(true);
+        writePacks({ action: "select", slot: slot, id: id }, function (res) {
+          finishPack(res, "「" + (SLOT_LABELS[slot] || slot) + "」已切换到 " + id + "，下一轮生效");
+        });
+      }
+
+      function resetPack(slot) {
+        if (packBusy) return;
+        setPackBusy(true);
+        writePacks({ action: "reset", slot: slot }, function (res) {
+          finishPack(res, "「" + (SLOT_LABELS[slot] || slot) + "」已恢复内置");
+        });
+      }
+
+      function removePack(id) {
+        if (packBusy) return;
+        setPackBusy(true);
+        writePacks({ action: "remove", id: id }, function (res) {
+          finishPack(res, "已删除 " + id + "（有备份，可在 packs/backup 找回）");
+        });
+      }
+
+      function importPack(file) {
+        if (!file || packBusy) return;
+        var slot = importSlot;
+        setPackBusy(true);
+        var apply = function (text) {
+          writePacks({ action: "import", slot: slot, name: file.name, text: text }, function (res) {
+            finishPack(res, "已导入 " + file.name + " 并应用到「" + (SLOT_LABELS[slot] || slot) + "」");
+          });
+        };
+        if (typeof file.text === "function") {
+          file.text().then(apply).catch(function () {
+            setPackBusy(false);
+            setPackNote("读取文件失败");
+          });
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () { apply(String(reader.result || "")); };
+        reader.onerror = function () { setPackBusy(false); setPackNote("读取文件失败"); };
+        reader.readAsText(file, "utf-8");
+      }
+
       // 把后端的失败结果翻译成人话：最常见的其实是"宿主没重启，路由不存在"。
       function engageErrorText(res) {
         var status = (res && res.status) || 0;
@@ -383,7 +576,6 @@ window.__ModuleLoader__.load({
           }
           var data = res.data;
           if (data.version) setHostVersion(data.version);
-          if (data.scope) setScope(data.scope);
           var shown = [];
           var index = 0;
           var tick = function () {
@@ -403,6 +595,9 @@ window.__ModuleLoader__.load({
               });
               if (data.dissolve) setScan(data.dissolve);
               readVerify(function (result) { if (result) setVerifyResult(result); });
+              // 立即回读注入状态：按钮点完后徽标要从「未启动」变成「已注入」。
+              readScope(function (state) { if (state) { setScopeData(state); if (state.version) setHostVersion(state.version); } });
+              readPacks(function (state) { if (state) setPacks(state); });
               return;
             }
             shown = shown.concat([data.steps[index]]);
@@ -413,26 +608,6 @@ window.__ModuleLoader__.load({
           if (flowTimerRef.current !== null) clearInterval(flowTimerRef.current);
           flowTimerRef.current = setInterval(tick, 320);
           tick();
-        });
-      }
-
-      function toggleScope() {
-        if (scopeBusy) return;
-        var next = scope === "global" ? "local" : "global";
-        setScopeBusy(true);
-        writeScope(next, function (data) {
-          setScopeBusy(false);
-          if (data && data.ok) {
-            setScope(data.scope || next);
-            setScopeNote("");
-            return;
-          }
-          if (data && data.error === "env-override") {
-            setScopeNote("已被环境变量 GEN5_SCOPE 固定，无法在界面切换");
-            return;
-          }
-          setScopeNote("切换失败，请重试");
-          setTimeout(function () { setScopeNote(""); }, 4000);
         });
       }
 
@@ -458,10 +633,25 @@ window.__ModuleLoader__.load({
         return function () { alive = false; if (timer) clearTimeout(timer); };
       }, []);
 
-      var verdict = armor ? armor.verdict : null;
-      var words = armor && armor.words ? armor.words : [];
-      var isRunning = Boolean(armor && armor.running);
+      var injected = Boolean(scopeData && scopeData.armed);
+      var sections = (scopeData && scopeData.sections) || { total: 0, core: false, persona: false, seal: false };
+      var engagedAt = scopeData && scopeData.engagedAt ? scopeData.engagedAt : null;
+      var engagedOk = Boolean(scopeData && scopeData.engagedOk);
+      var status =
+        scopeData === null
+          ? "unknown"
+          : injected
+            ? "armed"
+            : engagedOk
+              ? "pending"
+              : engagedAt
+                ? "failed"
+                : "off";
       var global = scope === "global";
+      var coreInfo = packs && packs.slots ? packs.slots.core : null;
+      var coreLabel = coreInfo
+        ? (coreInfo.active === "builtin" ? "内置" : coreInfo.active) + " · " + (coreInfo.bytes || 0) + "B"
+        : "读取中…";
 
       return react.createElement(
         "div",
@@ -476,10 +666,10 @@ window.__ModuleLoader__.load({
             react.createElement(
               "span",
               { className: "gen5-title" },
-              react.createElement("span", { className: "gen5-titleDot", style: isRunning ? { animation: "dshArmorPulse 1.2s ease-in-out infinite" } : undefined }),
+              react.createElement("span", { className: "gen5-titleDot", style: injected ? { animation: "dshArmorPulse 1.2s ease-in-out infinite" } : undefined }),
               BADGE_LABEL
             ),
-            react.createElement(VerdictBadge, { verdict: verdict })
+            react.createElement(StatusBadge, { status: status })
           ),
           react.createElement("div", { className: "gen5-version" }, "v" + PLUGIN_VERSION)
         ),
@@ -528,6 +718,24 @@ window.__ModuleLoader__.load({
                   : scan.available
                     ? (scan.hostSections || []).length + " 段 / 约束 " + (scan.constrained || []).length + " / 已覆盖 " + (scan.covered || []).length
                     : "不可读（追加压制）"
+            )
+          ),
+          react.createElement(
+            "div",
+            { className: "gen5-row" },
+            react.createElement("span", { className: "gen5-label" }, "注入状态"),
+            react.createElement(
+              "span",
+              { className: "gen5-value" },
+              scopeData === null
+                ? "读取中…"
+                : injected
+                  ? "🟢 已注入 · " + sections.total + " 段"
+                  : engagedOk
+                    ? "🟡 已启用，等待「破甲模式」会话"
+                    : engagedAt
+                      ? "🔴 上次启动失败"
+                      : "⚪ 未启动"
             )
           ),
           react.createElement(
@@ -615,37 +823,102 @@ window.__ModuleLoader__.load({
         react.createElement(
           "div",
           { className: "gen5-section" },
-          react.createElement("div", { className: "gen5-sectionTitle" }, "实时状态"),
+          react.createElement("div", { className: "gen5-sectionTitle" }, "注入详情"),
           react.createElement(
             "div",
             { className: "gen5-row" },
-            react.createElement("span", { className: "gen5-label" }, "当前状态"),
+            react.createElement("span", { className: "gen5-label" }, "覆盖破甲段"),
             react.createElement(
               "span",
               { className: "gen5-value" },
-              isRunning ? "思考中" : verdict === "pass" ? "通过" : verdict === "refusal" || verdict === "fallback" ? "拒绝" : verdict === "partial" ? "未完交付" : "待运行"
+              sections.total > 0
+                ? sections.total + " 段（核 " + (sections.core ? "✓" : "✗") + " · 前缀 " + (sections.persona ? "✓" : "✗") + " · 封口 " + (sections.seal ? "✓" : "✗") + "）"
+                : "0 段"
             )
           ),
           react.createElement(
             "div",
             { className: "gen5-row" },
-            react.createElement("span", { className: "gen5-label" }, "W5 再锚定触发"),
-            react.createElement("span", { className: "gen5-value" }, (armor && armor.w5Count) || 0)
+            react.createElement("span", { className: "gen5-label" }, "最近启动"),
+            react.createElement(
+              "span",
+              { className: "gen5-value" },
+              engagedAt
+                ? fmtTime(engagedAt) + " · " + (engagedOk ? "成功" : "失败") + " · " + (scopeData.engagedScope === "global" ? "全局" : "隔离")
+                : "从未启动"
+            )
           ),
           react.createElement(
             "div",
             { className: "gen5-row" },
-            react.createElement("span", { className: "gen5-label" }, "本轮拒绝词"),
-            react.createElement(
-              "span",
-              { className: "gen5-value" },
-              words.length > 0
-                ? words
-                    .slice(0, 3)
-                    .map(function (w, i) { return react.createElement("span", { key: i, className: "gen5-word" }, w) })
-                : "无"
-            )
+            react.createElement("span", { className: "gen5-label" }, "破甲核"),
+            react.createElement("span", { className: "gen5-value" }, coreLabel)
+          ),
+          react.createElement(
+            "div",
+            { className: "gen5-note" },
+            "本页只显示全局注入状态。逐轮判定（思考中 / 通过 / 拒绝 / 未完交付）在输入框上方的破甲徽标里看。"
           )
+        ),
+        // ---- 破甲词库（0.3.0）：换 md 不用重装 ----
+        react.createElement(
+          "div",
+          { className: "gen5-section" },
+          react.createElement("div", { className: "gen5-sectionTitle" }, "破甲词库"),
+          packs === null
+            ? react.createElement("div", { className: "gen5-note" }, "读取中…")
+            : react.createElement(
+                "div",
+                null,
+                ["core", "persona", "seal"].map(function (slot) {
+                  return react.createElement(PackRow, {
+                    key: slot,
+                    slot: slot,
+                    info: packs.slots ? packs.slots[slot] : null,
+                    packs: packs.packs || [],
+                    busy: packBusy,
+                    onSelect: selectPack,
+                    onReset: resetPack,
+                    onRemove: removePack
+                  });
+                }),
+                react.createElement(
+                  "div",
+                  { className: "gen5-importRow" },
+                  react.createElement("span", { className: "gen5-label" }, "导入 .md"),
+                  react.createElement(
+                    "select",
+                    {
+                      className: "gen5-select",
+                      value: importSlot,
+                      disabled: packBusy,
+                      onChange: function (event) { setImportSlot(event.target.value); }
+                    },
+                    ["core", "persona", "seal"].map(function (slot) {
+                      return react.createElement("option", { key: slot, value: slot }, SLOT_LABELS[slot]);
+                    })
+                  ),
+                  react.createElement("input", {
+                    className: "gen5-file",
+                    type: "file",
+                    accept: ".md,text/markdown,text/plain",
+                    disabled: packBusy,
+                    onChange: function (event) {
+                      var file = event.target.files && event.target.files[0];
+                      if (file) importPack(file);
+                      event.target.value = "";
+                    }
+                  })
+                ),
+                react.createElement(
+                  "div",
+                  { className: "gen5-note" },
+                  "词库目录：" + (packs.packsDir || "") + "（改完下一轮生效；切换失败会自动回落内置）"
+                ),
+                packNote
+                  ? react.createElement("div", { className: "gen5-note gen5-noteWarn" }, packNote)
+                  : null
+              )
         ),
         react.createElement(
           "div",

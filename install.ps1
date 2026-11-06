@@ -1,4 +1,4 @@
-﻿# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
+# install.ps1 — 无限五代 破甲 v$pluginVer 一键安装（dsh-armor-gen5）
 # 用法：powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 # 前提：目标机器已安装 DeepSeek Harness 并至少成功启动过一次（存在 ~/.dsh）。
 #
@@ -113,7 +113,7 @@ if (Test-Path $patchPath) {
 $kernelDir = Join-Path $profileDir 'armor-kernel'
 if (Test-Path $kernelDir) { Remove-Item $kernelDir -Recurse -Force }
 New-Item -ItemType Directory -Path (Join-Path $kernelDir 'prompts') -Force | Out-Null
-foreach ($f in @('index.js', 'runtime.js', 'preheat.js', 'normalize.js', 'preset-rows.js', 'package.json')) {
+foreach ($f in @('index.js', 'runtime.js', 'preheat.js', 'normalize.js', 'prompt-pack.js', 'preset-rows.js', 'package.json')) {
     $from = Join-Path $destDir $f
     if (Test-Path $from) { Copy-Item $from (Join-Path $kernelDir $f) -Force }
 }
@@ -157,7 +157,7 @@ if ($spec -notlike "file:*") {
 # ---- 5. 自检 ----
 Write-Host "[5] 语法自检:"
 $ok = $true
-foreach ($f in @("index.js", "client.js", "preheat.js", "normalize.js", "preset-rows.js")) {
+foreach ($f in @("index.js", "client.js", "preheat.js", "normalize.js", "prompt-pack.js", "preset-rows.js")) {
     $p = Join-Path $destDir $f
     & node --check $p 2>$null
     if ($LASTEXITCODE -ne 0) { Write-Host "    FAIL: $f" -ForegroundColor Red; $ok = $false }
